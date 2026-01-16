@@ -1,0 +1,135 @@
+"""Authentication dependencies for FastAPI."""
+
+from typing import Optional
+
+from fastapi import Depends, HTTPException, status, Request
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database.session import get_db
+from app.models.user import User, UserRole
+from app.security.jwt import decode_token
+
+
+async def get_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Get the current authenticated user from the access token cookie.
+
+    This dependency extracts the JWT from the 'ezmsg_access' cookie
+    and returns the corresponding user.
+
+    Args:
+        request: FastAPI request object
+        db: Database session
+
+    Returns:
+        User object if authenticated, None otherwise
+
+    Raises:
+        HTTPException: If token is invalid or user not found
+    """
+    token = request.cookies.get("ezmsg_access")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
+    payload = decode_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+
+    if payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    return user
+
+
+async def get_current_active_user(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Get the current active user.
+
+    Args:
+        user: User from get_current_user dependency
+
+    Returns:
+        Active user object
+
+    Raises:
+        HTTPException: If user is inactive
+    """
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is disabled",
+        )
+    return user
+
+
+async def require_admin(
+    user: User = Depends(get_current_active_user),
+) -> User:
+    """Require admin role for the endpoint.
+
+    Args:
+        user: Active user from get_current_active_user dependency
+
+    Returns:
+        Admin user object
+
+    Raises:
+        HTTPException: If user is not an admin
+    """
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user
+
+
+async def require_researcher_or_admin(
+    user: User = Depends(get_current_active_user),
+) -> User:
+    """Require researcher or admin role for the endpoint.
+
+    Args:
+        user: Active user from get_current_active_user dependency
+
+    Returns:
+        User object with researcher or admin role
+
+    Raises:
+        HTTPException: If user doesn't have required role
+    """
+    if user.role not in [UserRole.ADMIN, UserRole.RESEARCHER]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Researcher or admin access required",
+        )
+    return user

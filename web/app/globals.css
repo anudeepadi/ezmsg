@@ -1,0 +1,174 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-text font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
+
+@layer components {
+  /* Card component */
+  .card {
+    @apply bg-surface border border-border rounded-lg shadow-card;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full px-3 py-2 bg-surface border border-border rounded-md text-text
+           placeholder:text-text-muted
+           focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent
+           transition-colors duration-150;
+  }
+
+  /* Button base */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           font-medium text-body-sm rounded-md
+           transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-primary-foreground
+           hover:bg-primary-hover
+           focus:ring-primary/50;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface text-text border border-border
+           hover:bg-background
+           focus:ring-border;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent text-white
+           hover:bg-accent-hover
+           focus:ring-accent/50;
+  }
+
+  .btn-ghost {
+    @apply btn text-text-secondary
+           hover:bg-background hover:text-text
+           focus:ring-border;
+  }
+
+  .btn-danger {
+    @apply btn bg-error text-white
+           hover:bg-red-700
+           focus:ring-error/50;
+  }
+
+  /* Label */
+  .label {
+    @apply block text-body-sm font-medium text-text mb-1.5;
+  }
+
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-caption font-medium;
+  }
+
+  .badge-success {
+    @apply badge bg-success-light text-success;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning-light text-warning;
+  }
+
+  .badge-error {
+    @apply badge bg-error-light text-error;
+  }
+
+  .badge-default {
+    @apply badge bg-background text-text-secondary border border-border;
+  }
+
+  /* Table styles */
+  .table {
+    @apply w-full text-body-sm;
+  }
+
+  .table th {
+    @apply px-4 py-3 text-left text-caption font-medium text-text-secondary uppercase tracking-wider bg-background border-b border-border;
+  }
+
+  .table td {
+    @apply px-4 py-3 border-b border-border;
+  }
+
+  .table tbody tr:hover {
+    @apply bg-background/50;
+  }
+
+  /* Sidebar navigation */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-md text-body-sm text-text-secondary
+           hover:bg-background hover:text-text
+           transition-colors duration-150;
+  }
+
+  .nav-item-active {
+    @apply nav-item bg-background text-text font-medium;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Focus ring utility */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-accent/20 focus:ring-offset-2;
+  }
+
+  /* Scrollbar styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.border') transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: theme('colors.border');
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.border-strong');
+  }
+}

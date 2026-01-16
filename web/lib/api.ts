@@ -1,0 +1,503 @@
+/**
+ * API client for EzMsg backend.
+ * All requests include credentials for HttpOnly cookie auth.
+ */
+
+const API_BASE = '/api';
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public statusText: string,
+    public data?: unknown
+  ) {
+    super(`API Error: ${status} ${statusText}`);
+    this.name = 'ApiError';
+  }
+}
+
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+    throw new ApiError(response.status, response.statusText, data);
+  }
+
+  // Handle 204 No Content
+  if (response.status === 204) {
+    return null as T;
+  }
+
+  return response.json();
+}
+
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${API_BASE}${endpoint}`;
+
+  const response = await fetch(url, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  return handleResponse<T>(response);
+}
+
+// Auth
+export interface User {
+  id: number;
+  email: string;
+  full_name: string | null;
+  role: string;
+  is_active: boolean;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export const auth = {
+  login: (credentials: LoginCredentials) =>
+    request<{ message: string; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    }),
+
+  logout: () =>
+    request<{ message: string }>('/auth/logout', {
+      method: 'POST',
+    }),
+
+  me: () => request<User>('/auth/me'),
+
+  refresh: () =>
+    request<{ message: string }>('/auth/refresh', {
+      method: 'POST',
+    }),
+};
+
+// Projects
+export interface Project {
+  id: number;
+  uu_id: string | null;
+  name: string;
+  description: string | null;
+  status: string;
+  owner_id: number;
+  owner_email: string;
+  participant_count?: number;
+  node_count?: number;
+}
+
+export interface ProjectListResponse {
+  items: Project[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface ProjectCreate {
+  name: string;
+  description?: string;
+}
+
+export interface ProjectUpdate {
+  name?: string;
+  description?: string;
+}
+
+export const projects = {
+  list: () => request<ProjectListResponse>('/admin/projects'),
+
+  get: (id: number) => request<Project>(`/admin/projects/${id}`),
+
+  create: (data: ProjectCreate) =>
+    request<Project>('/admin/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: ProjectUpdate) =>
+    request<Project>(`/admin/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number) =>
+    request<void>(`/admin/projects/${id}`, {
+      method: 'DELETE',
+    }),
+
+  activate: (id: number) =>
+    request<Project>(`/admin/projects/${id}/activate`, {
+      method: 'POST',
+    }),
+
+  suspend: (id: number) =>
+    request<Project>(`/admin/projects/${id}/suspend`, {
+      method: 'POST',
+    }),
+};
+
+// Participants
+export interface Participant {
+  id: number;
+  uu_id: string | null;
+  project_id: number;
+  external_id: string | null;
+  status: string;
+  channel_type: string;
+  language_id: number;
+  is_test_participant: boolean;
+  enrolled_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface ParticipantListResponse {
+  items: Participant[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface ParticipantCreate {
+  project_id: number;
+  external_id?: string;
+  phone_number?: string;
+  fcm_token?: string;
+  channel_type?: string;
+  language_id?: number;
+  is_test_participant?: boolean;
+}
+
+export interface ParticipantUpdate {
+  status?: string;
+  phone_number?: string;
+  fcm_token?: string;
+  language_id?: number;
+}
+
+export const participants = {
+  list: (projectId: number, page = 1, size = 50, status?: string) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      size: size.toString(),
+    });
+    if (status) params.set('status_filter', status);
+    return request<ParticipantListResponse>(
+      `/admin/participants/project/${projectId}?${params}`
+    );
+  },
+
+  get: (id: number) => request<Participant>(`/admin/participants/${id}`),
+
+  create: (data: ParticipantCreate) =>
+    request<Participant>('/admin/participants', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: ParticipantUpdate) =>
+    request<Participant>(`/admin/participants/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
+// Templates
+export interface TemplateText {
+  id: number;
+  language_id: number;
+  message_text: string | null;
+  media_url: string | null;
+  media_type: string | null;
+  quick_replies: Record<string, unknown>[];
+}
+
+export interface Template {
+  id: number;
+  project_id: number;
+  name: string;
+  description: string | null;
+  type: string;
+  texts: TemplateText[];
+}
+
+export interface TemplateCreate {
+  project_id: number;
+  name: string;
+  description?: string;
+  type?: string;
+  texts?: {
+    language_id: number;
+    message_text: string;
+    media_url?: string;
+    media_type?: string;
+    quick_replies?: Record<string, unknown>[];
+  }[];
+}
+
+export const templates = {
+  list: (projectId: number) =>
+    request<Template[]>(`/admin/templates/project/${projectId}`),
+
+  get: (id: number) => request<Template>(`/admin/templates/${id}`),
+
+  create: (data: TemplateCreate) =>
+    request<Template>('/admin/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number) =>
+    request<void>(`/admin/templates/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+// Nodes
+export interface Node {
+  id: number;
+  project_id: number;
+  name: string;
+  display_name: string | null;
+  description: string | null;
+  is_terminal_node: boolean;
+  is_entry_node: boolean;
+  template_id: number | null;
+  timing_element_id: number | null;
+  conditional_expression_id: number | null;
+  node_order: number;
+  outgoing_edge_count?: number;
+  incoming_edge_count?: number;
+}
+
+export interface Edge {
+  id: number;
+  parent_node_id: number;
+  child_node_id: number;
+  edge_label: string | null;
+  edge_order: number;
+}
+
+export interface GraphResponse {
+  nodes: Node[];
+  edges: Edge[];
+}
+
+export interface NodeCreate {
+  project_id: number;
+  name: string;
+  display_name?: string;
+  description?: string;
+  is_terminal_node?: boolean;
+  is_entry_node?: boolean;
+  template_id?: number;
+  timing_element_id?: number;
+  conditional_expression_id?: number;
+  node_order?: number;
+}
+
+export interface NodeUpdate {
+  name?: string;
+  display_name?: string;
+  description?: string;
+  is_terminal_node?: boolean;
+  is_entry_node?: boolean;
+  template_id?: number;
+  timing_element_id?: number;
+  node_order?: number;
+}
+
+export interface EdgeCreate {
+  parent_node_id: number;
+  child_node_id: number;
+  edge_label?: string;
+  edge_order?: number;
+}
+
+export const nodes = {
+  list: (projectId: number) =>
+    request<Node[]>(`/admin/nodes/project/${projectId}`),
+
+  get: (id: number) => request<Node>(`/admin/nodes/${id}`),
+
+  create: (data: NodeCreate) =>
+    request<Node>('/admin/nodes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: NodeUpdate) =>
+    request<Node>(`/admin/nodes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number) =>
+    request<void>(`/admin/nodes/${id}`, {
+      method: 'DELETE',
+    }),
+
+  getGraph: (projectId: number) =>
+    request<GraphResponse>(`/admin/nodes/project/${projectId}/graph`),
+
+  createEdge: (data: EdgeCreate) =>
+    request<Edge>('/admin/nodes/edges', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  deleteEdge: (id: number) =>
+    request<void>(`/admin/nodes/edges/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+// Variables
+export interface Variable {
+  id: number;
+  project_id: number;
+  name: string;
+  display_name: string | null;
+  description: string | null;
+  type: string;
+  source_type: string;
+  default_value: string | null;
+}
+
+export interface VariableCreate {
+  project_id: number;
+  name: string;
+  display_name?: string;
+  description?: string;
+  type?: string;
+  source_type?: string;
+  default_value?: string;
+}
+
+export interface VariableUpdate {
+  name?: string;
+  display_name?: string;
+  description?: string;
+  type?: string;
+  default_value?: string;
+}
+
+export const variables = {
+  list: (projectId: number) =>
+    request<Variable[]>(`/admin/variables/project/${projectId}`),
+
+  get: (id: number) => request<Variable>(`/admin/variables/${id}`),
+
+  create: (data: VariableCreate) =>
+    request<Variable>('/admin/variables', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: VariableUpdate) =>
+    request<Variable>(`/admin/variables/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: number) =>
+    request<void>(`/admin/variables/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+// Analytics
+export interface OverviewStats {
+  total_participants: number;
+  active_participants: number;
+  completed_participants: number;
+  total_messages_sent: number;
+  messages_pending: number;
+  messages_failed: number;
+  delivery_rate: number;
+}
+
+export interface DeliveryStats {
+  total_sent: number;
+  total_pending: number;
+  total_failed: number;
+  total_aborted: number;
+  sent_today: number;
+  sent_this_week: number;
+}
+
+export const analytics = {
+  overview: (projectId: number) =>
+    request<OverviewStats>(`/admin/analytics/project/${projectId}/overview`),
+
+  delivery: (projectId: number) =>
+    request<DeliveryStats>(`/admin/analytics/project/${projectId}/delivery`),
+};
+
+// Scheduler
+export interface QueueHealth {
+  pending_count: number;
+  in_progress_count: number;
+  failed_count: number;
+  sent_today: number;
+  oldest_pending_minutes: number | null;
+}
+
+export interface ScheduledMessage {
+  id: number;
+  participant_id: number;
+  node_id: number;
+  status: string;
+  scheduled_at: string;
+  sent_at: string | null;
+  attempt_count: number;
+  error_message: string | null;
+}
+
+export const scheduler = {
+  health: () => request<QueueHealth>('/scheduler/health'),
+
+  pending: (projectId?: number, limit = 100) => {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (projectId) params.set('project_id', projectId.toString());
+    return request<ScheduledMessage[]>(`/scheduler/messages/pending?${params}`);
+  },
+
+  failed: (projectId?: number, limit = 100) => {
+    const params = new URLSearchParams({ limit: limit.toString() });
+    if (projectId) params.set('project_id', projectId.toString());
+    return request<ScheduledMessage[]>(`/scheduler/messages/failed?${params}`);
+  },
+
+  requeue: (maxAgeHours = 24) =>
+    request<{ requeued_count: number; message: string }>(
+      `/scheduler/requeue?max_age_hours=${maxAgeHours}`,
+      { method: 'POST' }
+    ),
+
+  abortParticipant: (participantId: number) =>
+    request<{ aborted_count: number; message: string }>(
+      `/scheduler/abort/participant/${participantId}`,
+      { method: 'POST' }
+    ),
+
+  abortProject: (projectId: number) =>
+    request<{ aborted_count: number; message: string }>(
+      `/scheduler/abort/project/${projectId}`,
+      { method: 'POST' }
+    ),
+};
