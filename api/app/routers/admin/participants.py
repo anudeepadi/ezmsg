@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.session import get_db
-from app.models.participant import Participant, ParticipantStatus, MessagingChannelType
+from app.models.participant import Participant, ParticipantStatus, MessagingChannelType, ParticipantVariableValue
+from app.models.variable import Variable
+from app.models.scheduled_message import ScheduledMessage
 from app.models.project import Project
 from app.models.user import User
 from app.security.deps import get_current_active_user
@@ -310,3 +312,229 @@ async def update_participant(
         completed_at=participant.completed_at,
         created_at=participant.created_at,
     )
+
+
+class ParticipantVariableResponse(BaseModel):
+    """Participant variable value response."""
+    id: int
+    variable_id: int
+    variable_name: str
+    variable_display_name: Optional[str]
+    variable_type: str
+    value: Optional[str]
+
+
+class ParticipantVariableUpdate(BaseModel):
+    """Update a participant variable value."""
+    value: Optional[str]
+
+
+class ParticipantMessageResponse(BaseModel):
+    """Participant message history response."""
+    id: int
+    node_id: Optional[int]
+    template_id: Optional[int]
+    status: str
+    message_body: Optional[str]
+    scheduled_at: datetime
+    sent_at: Optional[datetime]
+    direction: str
+
+
+@router.get("/{participant_id}/variables", response_model=List[ParticipantVariableResponse])
+async def get_participant_variables(
+    participant_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> List[ParticipantVariableResponse]:
+    """Get all variable values for a participant.
+
+    Args:
+        participant_id: Participant ID
+        db: Database session
+        user: Current user
+
+    Returns:
+        List of participant variable values
+    """
+    # Get participant with project
+    result = await db.execute(
+        select(Participant)
+        .options(selectinload(Participant.project))
+        .where(Participant.id == participant_id, Participant.removed_at.is_(None))
+    )
+    participant = result.scalar_one_or_none()
+
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    if user.role.value != "admin" and participant.project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get all variables for this project
+    variables_result = await db.execute(
+        select(Variable).where(Variable.project_id == participant.project_id)
+    )
+    variables = variables_result.scalars().all()
+
+    # Get existing variable values for this participant
+    values_result = await db.execute(
+        select(ParticipantVariableValue).where(
+            ParticipantVariableValue.participant_id == participant_id
+        )
+    )
+    existing_values = {v.variable_id: v for v in values_result.scalars().all()}
+
+    # Build response with all variables (including those without values)
+    response = []
+    for var in variables:
+        existing = existing_values.get(var.id)
+        response.append(
+            ParticipantVariableResponse(
+                id=existing.id if existing else 0,
+                variable_id=var.id,
+                variable_name=var.name,
+                variable_display_name=var.display_name,
+                variable_type=var.type.value,
+                value=existing.variable_value if existing else var.default_value,
+            )
+        )
+
+    return response
+
+
+@router.put("/{participant_id}/variables/{variable_id}", response_model=ParticipantVariableResponse)
+async def update_participant_variable(
+    participant_id: int,
+    variable_id: int,
+    data: ParticipantVariableUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> ParticipantVariableResponse:
+    """Update a specific variable value for a participant.
+
+    Args:
+        participant_id: Participant ID
+        variable_id: Variable ID
+        data: Update data
+        db: Database session
+        user: Current user
+
+    Returns:
+        Updated participant variable value
+    """
+    # Get participant with project
+    result = await db.execute(
+        select(Participant)
+        .options(selectinload(Participant.project))
+        .where(Participant.id == participant_id, Participant.removed_at.is_(None))
+    )
+    participant = result.scalar_one_or_none()
+
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    if user.role.value != "admin" and participant.project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get the variable
+    var_result = await db.execute(
+        select(Variable).where(
+            Variable.id == variable_id,
+            Variable.project_id == participant.project_id,
+        )
+    )
+    variable = var_result.scalar_one_or_none()
+
+    if not variable:
+        raise HTTPException(status_code=404, detail="Variable not found")
+
+    # Get or create participant variable value
+    value_result = await db.execute(
+        select(ParticipantVariableValue).where(
+            ParticipantVariableValue.participant_id == participant_id,
+            ParticipantVariableValue.variable_id == variable_id,
+        )
+    )
+    existing_value = value_result.scalar_one_or_none()
+
+    if existing_value:
+        existing_value.variable_value = data.value
+        await db.flush()
+        await db.refresh(existing_value)
+        value_id = existing_value.id
+    else:
+        new_value = ParticipantVariableValue(
+            participant_id=participant_id,
+            variable_id=variable_id,
+            variable_value=data.value,
+        )
+        db.add(new_value)
+        await db.flush()
+        await db.refresh(new_value)
+        value_id = new_value.id
+
+    return ParticipantVariableResponse(
+        id=value_id,
+        variable_id=variable.id,
+        variable_name=variable.name,
+        variable_display_name=variable.display_name,
+        variable_type=variable.type.value,
+        value=data.value,
+    )
+
+
+@router.get("/{participant_id}/messages", response_model=List[ParticipantMessageResponse])
+async def get_participant_messages(
+    participant_id: int,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> List[ParticipantMessageResponse]:
+    """Get message history for a participant.
+
+    Args:
+        participant_id: Participant ID
+        limit: Max results
+        db: Database session
+        user: Current user
+
+    Returns:
+        List of messages
+    """
+    # Get participant with project
+    result = await db.execute(
+        select(Participant)
+        .options(selectinload(Participant.project))
+        .where(Participant.id == participant_id, Participant.removed_at.is_(None))
+    )
+    participant = result.scalar_one_or_none()
+
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    if user.role.value != "admin" and participant.project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get messages
+    messages_result = await db.execute(
+        select(ScheduledMessage)
+        .where(ScheduledMessage.participant_id == participant_id)
+        .order_by(ScheduledMessage.send_at.desc())
+        .limit(limit)
+    )
+    messages = messages_result.scalars().all()
+
+    return [
+        ParticipantMessageResponse(
+            id=m.id,
+            node_id=m.messaging_node_id,
+            template_id=m.template_id,
+            status=m.status.value,
+            message_body=m.message_body,
+            scheduled_at=m.send_at,
+            sent_at=m.sent_at,
+            direction=m.direction.value,
+        )
+        for m in messages
+    ]

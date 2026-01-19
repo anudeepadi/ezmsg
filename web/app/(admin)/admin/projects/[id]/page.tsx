@@ -26,6 +26,9 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  Timer,
+  PlayCircle,
+  MessageCircle,
 } from 'lucide-react';
 
 export default function ProjectDetailPage() {
@@ -118,9 +121,27 @@ export default function ProjectDetailPage() {
       count: null,
     },
     {
+      name: 'Scheduler',
+      href: `/admin/projects/${projectId}/scheduler`,
+      icon: Timer,
+      count: null,
+    },
+    {
       name: 'Analytics',
       href: `/admin/projects/${projectId}/analytics`,
       icon: BarChart3,
+      count: null,
+    },
+    {
+      name: 'Test Protocol',
+      href: `/admin/projects/${projectId}/test-protocol`,
+      icon: PlayCircle,
+      count: null,
+    },
+    {
+      name: 'Simulator',
+      href: `/admin/projects/${projectId}/simulator`,
+      icon: MessageCircle,
       count: null,
     },
   ];
@@ -242,7 +263,7 @@ export default function ProjectDetailPage() {
         )}
 
         {/* Quick links */}
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
           {quickLinks.map((link) => {
             const Icon = link.icon;
             return (

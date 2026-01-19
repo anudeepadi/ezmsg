@@ -11,8 +11,10 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Format date for display
  */
-export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions) {
+export function formatDate(date: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions): string {
+  if (!date) return '-';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -24,8 +26,10 @@ export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOpt
 /**
  * Format date with time
  */
-export function formatDateTime(date: string | Date) {
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return '-';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
   return d.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -38,8 +42,10 @@ export function formatDateTime(date: string | Date) {
 /**
  * Format relative time
  */
-export function formatRelativeTime(date: string | Date) {
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return '-';
   const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMins = Math.floor(diffMs / 60000);

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.routers.admin import projects, participants, templates, nodes, variables, analytics
+from app.routers.admin import projects, participants, templates, nodes, variables, analytics, testing, protocol_test
 
 router = APIRouter()
 
@@ -13,3 +13,5 @@ router.include_router(templates.router, prefix="/templates", tags=["Templates"])
 router.include_router(nodes.router, prefix="/nodes", tags=["Nodes"])
 router.include_router(variables.router, prefix="/variables", tags=["Variables"])
 router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
+router.include_router(testing.router, prefix="/testing", tags=["Testing"])
+router.include_router(protocol_test.router, prefix="/protocol-test", tags=["Protocol Testing"])

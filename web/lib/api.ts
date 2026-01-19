@@ -109,6 +109,7 @@ export interface ProjectListResponse {
 
 export interface ProjectCreate {
   name: string;
+  code?: string;
   description?: string;
 }
 
@@ -189,6 +190,26 @@ export interface ParticipantUpdate {
   language_id?: number;
 }
 
+export interface ParticipantVariable {
+  id: number;
+  variable_id: number;
+  variable_name: string;
+  variable_display_name: string | null;
+  variable_type: string;
+  value: string | null;
+}
+
+export interface ParticipantMessage {
+  id: number;
+  node_id: number | null;
+  template_id: number | null;
+  status: string;
+  message_body: string | null;
+  scheduled_at: string;
+  sent_at: string | null;
+  direction: string;
+}
+
 export const participants = {
   list: (projectId: number, page = 1, size = 50, status?: string) => {
     const params = new URLSearchParams({
@@ -214,6 +235,18 @@ export const participants = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  getVariables: (id: number) =>
+    request<ParticipantVariable[]>(`/admin/participants/${id}/variables`),
+
+  updateVariable: (participantId: number, variableId: number, value: string | null) =>
+    request<ParticipantVariable>(`/admin/participants/${participantId}/variables/${variableId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    }),
+
+  getMessages: (id: number, limit = 100) =>
+    request<ParticipantMessage[]>(`/admin/participants/${id}/messages?limit=${limit}`),
 };
 
 // Templates
@@ -500,4 +533,198 @@ export const scheduler = {
       `/scheduler/abort/project/${projectId}`,
       { method: 'POST' }
     ),
+};
+
+// Testing
+export interface TestResult {
+  file: string;
+  name: string;
+  status: 'passed' | 'failed' | 'error' | 'skipped';
+  full_name: string;
+}
+
+export interface TestSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  errors: number;
+  skipped: number;
+  pass_rate: number;
+}
+
+export interface TestRunResponse {
+  timestamp: string;
+  summary: TestSummary;
+  tests: TestResult[];
+  exit_code: number;
+  raw_output: string;
+}
+
+export interface TestHealthResponse {
+  status: string;
+  tests_directory: string;
+  test_files_count: number;
+  test_files: string[];
+}
+
+export const testing = {
+  run: () =>
+    request<TestRunResponse>('/admin/testing/run', {
+      method: 'POST',
+    }),
+
+  health: () => request<TestHealthResponse>('/admin/testing/health'),
+};
+
+// Protocol Testing
+export interface FlowStep {
+  step: number;
+  node_id: number;
+  node_name: string;
+  display_name: string | null;
+  message_text: string | null;
+  scheduled_time: string;
+  delay_minutes: number | null;
+  is_entry: boolean;
+  is_terminal: boolean;
+  edges: {
+    to_node_id: number;
+    to_node_name: string;
+    label: string | null;
+  }[];
+}
+
+export interface ProtocolOverview {
+  project_id: number;
+  project_name: string;
+  total_nodes: number;
+  total_edges: number;
+  total_templates: number;
+  total_variables: number;
+  entry_nodes: { id: number; name: string }[];
+  terminal_nodes: { id: number; name: string }[];
+  nodes: {
+    id: number;
+    name: string;
+    display_name: string | null;
+    is_entry: boolean;
+    is_terminal: boolean;
+    template_id: number | null;
+    timing_element_id: number | null;
+  }[];
+  edges: {
+    id: number;
+    from_node: number;
+    to_node: number;
+    label: string | null;
+  }[];
+}
+
+export interface ProtocolTestResult {
+  project_id: number;
+  project_name: string;
+  test_started_at: string;
+  total_nodes_in_flow: number;
+  total_nodes_in_project: number;
+  estimated_duration_days: number;
+  language_id: number;
+  flow_steps: FlowStep[];
+  variables: {
+    id: number;
+    name: string;
+    display_name: string | null;
+    type: string;
+    default_value: string | null;
+  }[];
+}
+
+export interface TestParticipantResult {
+  message: string;
+  participant_id: number;
+  participant_uuid: string;
+  external_id: string;
+  first_message_scheduled_at: string;
+  entry_node: string;
+}
+
+export const protocolTest = {
+  overview: (projectId: number) =>
+    request<ProtocolOverview>(`/admin/protocol-test/${projectId}/overview`),
+
+  run: (projectId: number, data?: { participant_name?: string; language_id?: number; variables?: Record<string, string> }) =>
+    request<ProtocolTestResult>(`/admin/protocol-test/${projectId}/run`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    }),
+
+  createTestParticipant: (projectId: number, data?: { participant_name?: string; language_id?: number }) =>
+    request<TestParticipantResult>(`/admin/protocol-test/${projectId}/create-test-participant`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    }),
+};
+
+// Interactive Protocol Simulator
+export interface QuickReply {
+  label: string;
+  value: string;
+}
+
+export interface SimulatorEdge {
+  to_node_id: number;
+  to_node_name: string;
+  to_display_name: string | null;
+  label: string | null;
+}
+
+export interface SimulatorMessage {
+  node_id: number;
+  node_name: string;
+  display_name: string | null;
+  message_text: string | null;
+  media_url: string | null;
+  scheduled_time: string;
+  delay_description: string | null;
+  is_entry: boolean;
+  is_terminal: boolean;
+  quick_replies: QuickReply[];
+  available_edges: SimulatorEdge[];
+  expects_reply: boolean;
+}
+
+export interface SimulatorStartResponse {
+  project_id: number;
+  project_name: string;
+  simulation_started_at: string;
+  language_id: number;
+  message: SimulatorMessage;
+}
+
+export interface SimulatorReplyResponse {
+  project_id: number;
+  reply_received: string;
+  reply_received_at: string;
+  matched_edge_label: string | null;
+  message: SimulatorMessage | null;
+  end_reason?: string;
+}
+
+export const simulator = {
+  start: (projectId: number, data?: { language_id?: number; start_time?: string }) =>
+    request<SimulatorStartResponse>(`/admin/protocol-test/${projectId}/simulate/start`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    }),
+
+  reply: (projectId: number, data: { current_node_id: number; reply_value: string; current_time: string; language_id?: number }) =>
+    request<SimulatorReplyResponse>(`/admin/protocol-test/${projectId}/simulate/reply`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  advance: (projectId: number, data: { current_node_id: number; current_time: string; language_id?: number }) =>
+    request<SimulatorReplyResponse>(`/admin/protocol-test/${projectId}/simulate/advance`, {
+      method: 'POST',
+      body: JSON.stringify({ ...data, reply_value: '' }),
+    }),
 };

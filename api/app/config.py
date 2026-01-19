@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(
-        default="postgresql+asyncpg://ezmsg:ezmsg_dev@localhost:5432/ezmsg",
+        default="postgresql+asyncpg://ezmsg:ezmsg_dev@localhost:5433/ezmsg",
         description="PostgreSQL connection URL",
     )
     database_pool_size: int = 5

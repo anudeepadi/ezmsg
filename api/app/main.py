@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database.engine import engine
-from app.routers import auth, admin, public, scheduler, webhooks
+from app.routers import auth, admin, public, scheduler, webhooks, protocol_api
 
 
 @asynccontextmanager
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(public.router, prefix="/v1/public", tags=["Public"])
     app.include_router(scheduler.router, prefix="/v1/scheduler", tags=["Scheduler"])
     app.include_router(webhooks.router, prefix="/v1/webhooks", tags=["Webhooks"])
+    app.include_router(protocol_api.router, prefix="/v1", tags=["Protocol API"])
 
     @app.get("/health")
     async def health_check():

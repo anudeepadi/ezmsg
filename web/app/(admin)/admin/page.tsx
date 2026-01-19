@@ -12,6 +12,9 @@ import {
   Clock,
   ArrowRight,
   AlertTriangle,
+  MessageCircle,
+  PlayCircle,
+  FlaskConical,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -103,6 +106,59 @@ export default function DashboardPage() {
             variant={queueHealth?.failed_count ? 'warning' : 'default'}
           />
         </div>
+
+        {/* Quick Actions */}
+        {activeProjects.length > 0 && (
+          <div className="card">
+            <div className="p-4 border-b border-border">
+              <h2 className="text-subtitle text-text">Quick Actions</h2>
+            </div>
+            <div className="p-4 grid grid-cols-3 gap-4">
+              <Link
+                href={`/admin/projects/${activeProjects[0].id}/simulator`}
+                className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-accent hover:bg-accent-light/50 transition-colors group"
+              >
+                <div className="p-3 rounded-lg bg-accent-light group-hover:bg-accent transition-colors">
+                  <MessageCircle className="h-6 w-6 text-accent group-hover:text-white transition-colors" />
+                </div>
+                <div>
+                  <p className="text-body font-medium text-text">Protocol Simulator</p>
+                  <p className="text-body-sm text-text-secondary">
+                    Test {activeProjects[0].name}
+                  </p>
+                </div>
+              </Link>
+              <Link
+                href={`/admin/projects/${activeProjects[0].id}/test-protocol`}
+                className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-accent hover:bg-accent-light/50 transition-colors group"
+              >
+                <div className="p-3 rounded-lg bg-success-light group-hover:bg-success transition-colors">
+                  <PlayCircle className="h-6 w-6 text-success group-hover:text-white transition-colors" />
+                </div>
+                <div>
+                  <p className="text-body font-medium text-text">Flow Overview</p>
+                  <p className="text-body-sm text-text-secondary">
+                    View protocol structure
+                  </p>
+                </div>
+              </Link>
+              <Link
+                href="/admin/testing"
+                className="flex items-center gap-4 p-4 rounded-lg border border-border hover:border-accent hover:bg-accent-light/50 transition-colors group"
+              >
+                <div className="p-3 rounded-lg bg-warning-light group-hover:bg-warning transition-colors">
+                  <FlaskConical className="h-6 w-6 text-warning group-hover:text-white transition-colors" />
+                </div>
+                <div>
+                  <p className="text-body font-medium text-text">API Tests</p>
+                  <p className="text-body-sm text-text-secondary">
+                    Run system tests
+                  </p>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Projects list */}
         <div className="card">

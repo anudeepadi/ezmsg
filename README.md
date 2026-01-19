@@ -12,7 +12,26 @@ ezmsg-new/
 └── docker/       # Docker configuration
 ```
 
-## Quick Start
+## 🚀 Deployment
+
+### Railway (Recommended for Production)
+
+Deploy to Railway cloud platform in minutes:
+
+1. **Quick Deploy**: See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for complete guide
+2. **One-Click CLI**: `./railway-deploy.sh` (requires Railway CLI)
+3. **Automatic**: Railway auto-deploys from GitHub on every push
+
+**What's included:**
+- PostgreSQL database (managed)
+- Redis cache (managed)
+- Automatic HTTPS
+- Zero-downtime deployments
+- Monitoring & logs
+
+---
+
+## 💻 Local Development
 
 ### Prerequisites
 
@@ -85,6 +104,43 @@ pip install -e .
 # Run in simulation mode
 EZMSG_SIMULATION_MODE=true python -m app.main
 ```
+
+## 🔌 Protocol API (External Integration)
+
+EzMsg provides a REST API for external systems to interact with messaging protocols using API key authentication.
+
+### Quick Start
+
+```bash
+# Start a protocol session
+curl -X POST http://localhost:8000/v1/protocol/start \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: iquit0-test-key-12345" \
+  -d '{
+    "project_id": 7,
+    "language": "en",
+    "initial_response": "iquit0"
+  }'
+
+# Send a response to continue the flow
+curl -X POST http://localhost:8000/v1/protocol/respond \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: iquit0-test-key-12345" \
+  -d '{
+    "session_id": "your-session-id-here",
+    "response": "1"
+  }'
+```
+
+### Use Cases
+- Integration with external chatbots
+- Testing protocol flows via Postman
+- Mobile app direct API access
+- Third-party system integration
+
+**API Key**: `iquit0-test-key-12345` (update in production: `api/app/routers/protocol_api.py`)
+
+---
 
 ## Features
 
