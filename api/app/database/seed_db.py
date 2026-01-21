@@ -7,8 +7,7 @@ Safe to run multiple times - it will skip if admin already exists.
 import asyncio
 from sqlalchemy import select
 
-from app.database.engine import engine
-from app.database.session import AsyncSessionLocal
+from app.database.engine import engine, async_session_maker
 from app.models.user import User, UserRole
 from app.security.password import hash_password
 
@@ -17,7 +16,7 @@ async def seed_admin_user() -> None:
     """Create default admin user if it doesn't exist."""
     print("Seeding database with admin user...")
 
-    async with AsyncSessionLocal() as session:
+    async with async_session_maker() as session:
         # Check if admin user already exists
         result = await session.execute(
             select(User).where(User.email == "admin@example.com")
