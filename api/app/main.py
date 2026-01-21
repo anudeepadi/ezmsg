@@ -78,6 +78,62 @@ def create_app() -> FastAPI:
             "environment": settings.environment,
         }
 
+    @app.get("/debug/db")
+    async def debug_db():
+        """Debug endpoint to test database connectivity."""
+        from sqlalchemy import text
+        from app.database.session import get_db
+        from fastapi import Depends
+        from sqlalchemy.ext.asyncio import AsyncSession
+
+        async def test_db(db: AsyncSession = Depends(get_db)):
+            try:
+                # Simple query to test connection
+                result = await db.execute(text("SELECT 1 as test"))
+                value = result.scalar()
+
+                # Try to count users
+                result = await db.execute(text("SELECT COUNT(*) FROM users"))
+                user_count = result.scalar()
+
+                return {
+                    "status": "success",
+                    "connection": "working",
+                    "test_value": value,
+                    "user_count": user_count,
+                }
+            except Exception as e:
+                import traceback
+                return {
+                    "status": "error",
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                }
+
+        # Call the dependency manually
+        from app.database.engine import async_session_maker
+        async with async_session_maker() as session:
+            try:
+                result = await session.execute(text("SELECT 1 as test"))
+                value = result.scalar()
+
+                result = await session.execute(text("SELECT COUNT(*) FROM users"))
+                user_count = result.scalar()
+
+                return {
+                    "status": "success",
+                    "connection": "working",
+                    "test_value": value,
+                    "user_count": user_count,
+                }
+            except Exception as e:
+                import traceback
+                return {
+                    "status": "error",
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                }
+
     return app
 
 
