@@ -19,6 +19,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     print(f"Environment: {settings.environment}")
     print(f"Simulation mode: {settings.simulation_mode}")
 
+    # Initialize database tables
+    from app.database.init_db import init_db
+    try:
+        await init_db()
+    except Exception as e:
+        print(f"Warning: Database initialization failed: {e}")
+        print("Application will continue, but database may not be ready")
+
     yield
 
     # Shutdown
