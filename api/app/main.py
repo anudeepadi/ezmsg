@@ -21,8 +21,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize database tables
     from app.database.init_db import init_db
+    from app.database.seed_db import seed_db
     try:
         await init_db()
+        await seed_db()
     except Exception as e:
         print(f"Warning: Database initialization failed: {e}")
         print("Application will continue, but database may not be ready")
