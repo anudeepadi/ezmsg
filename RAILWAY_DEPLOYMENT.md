@@ -1,10 +1,10 @@
-# 🚂 Railway Deployment Guide - EzMsg
+� Railway Deployment Guide - EzMsg
 
 Complete guide to deploying the EzMsg messaging protocol management system on Railway.
 
 ---
 
-## 📋 Prerequisites
+Prerequisites
 
 1. **Railway Account**: Sign up at [railway.app](https://railway.app)
 2. **Railway CLI** (optional): `npm i -g @railway/cli`
@@ -12,7 +12,7 @@ Complete guide to deploying the EzMsg messaging protocol management system on Ra
 
 ---
 
-## 🚀 Quick Deploy (Web UI)
+Quick Deploy (Web UI)
 
 ### Step 1: Create New Project
 
@@ -78,7 +78,7 @@ Railway's monorepo support will auto-detect the Dockerfiles. You need to create 
 
 ---
 
-## 🔐 Environment Variables
+Environment Variables
 
 ### API Service (`ezmsg-api`)
 
@@ -155,7 +155,7 @@ API_URL=https://your-api.up.railway.app/v1
 
 ---
 
-## 🔗 Service Linking (Automatic)
+Service Linking (Automatic)
 
 Railway automatically makes database connections available through variable references:
 
@@ -166,7 +166,7 @@ Railway automatically makes database connections available through variable refe
 
 ---
 
-## 📦 Build Configuration
+Build Configuration
 
 Railway automatically detects:
 - **API**: `api/Dockerfile` → Builds Python FastAPI app
@@ -179,7 +179,7 @@ If Railway doesn't auto-detect, manually set:
 
 ---
 
-## 🗄️ Database Migration
+Database Migration
 
 After deploying, run migrations:
 
@@ -219,7 +219,7 @@ asyncio.run(init_db())
 
 ---
 
-## 🔄 Auto-Deployment
+Auto-Deployment
 
 Railway automatically deploys on every push to your main branch:
 
@@ -235,7 +235,7 @@ Railway automatically deploys on every push to your main branch:
 
 ---
 
-## 🌐 Custom Domains (Optional)
+Custom Domains (Optional)
 
 ### Add Custom Domain to API
 
@@ -255,7 +255,7 @@ Railway automatically deploys on every push to your main branch:
 
 ---
 
-## 📊 Monitoring & Logs
+Monitoring & Logs
 
 ### View Logs
 
@@ -275,7 +275,7 @@ Access these in **Service** → **Metrics**
 
 ---
 
-## 🐛 Troubleshooting
+Troubleshooting
 
 ### API Service Won't Start
 
@@ -336,7 +336,7 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
 ---
 
-## 💰 Cost Estimate (Railway Pricing)
+Cost Estimate (Railway Pricing)
 
 Railway pricing (as of 2026):
 - **Free Tier**: $5 credit/month, good for testing
@@ -356,7 +356,7 @@ Railway pricing (as of 2026):
 
 ---
 
-## 🔒 Security Checklist
+Security Checklist
 
 Before going to production:
 
@@ -371,7 +371,7 @@ Before going to production:
 
 ---
 
-## 📱 Protocol API Access
+� Protocol API Access
 
 After deployment, your Protocol API will be available at:
 
@@ -392,7 +392,7 @@ curl -X POST https://your-api.up.railway.app/v1/protocol/start \
 
 ---
 
-## 🎉 Success!
+Success!
 
 Your EzMsg application should now be live on Railway!
 
@@ -409,7 +409,7 @@ Your EzMsg application should now be live on Railway!
 
 ---
 
-## 📚 Additional Resources
+Additional Resources
 
 - [Railway Documentation](https://docs.railway.app)
 - [Railway Discord](https://discord.gg/railway)
@@ -418,7 +418,7 @@ Your EzMsg application should now be live on Railway!
 
 ---
 
-## 🆘 Support
+Support
 
 If you encounter issues:
 

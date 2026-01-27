@@ -1,10 +1,10 @@
-# 🚀 EzMsg Quick Start - Test with Free External Databases
+# EzMsg Quick Start
 
-Get EzMsg running locally in **15 minutes** using free Supabase (PostgreSQL) and Upstash (Redis).
+Get EzMsg running locally with free Supabase (PostgreSQL) and Upstash (Redis).
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Python 3.12+
 - Node.js 20+
@@ -12,11 +12,11 @@ Get EzMsg running locally in **15 minutes** using free Supabase (PostgreSQL) and
 
 ---
 
-## ⚡ Quick Setup (5 steps)
+## Quick Setup
 
-### **Step 1: Get Free Database Accounts (5 min)**
+### Step 1: Get Free Database Accounts
 
-#### **Supabase (PostgreSQL)**
+#### Supabase (PostgreSQL)
 1. Go to [supabase.com](https://supabase.com) → Sign up (free, no credit card)
 2. Click **"New Project"**
 3. Set name: `ezmsg-dev`, choose password, select region
@@ -24,7 +24,7 @@ Get EzMsg running locally in **15 minutes** using free Supabase (PostgreSQL) and
 5. Go to **Settings** → **Database** → **Connection string** → **URI**
 6. Copy the connection string (looks like: `postgresql://postgres:PASSWORD@db.xxx.supabase.co:5432/postgres`)
 
-#### **Upstash (Redis)**
+#### Upstash (Redis)
 1. Go to [upstash.com](https://upstash.com) → Sign up (free, no credit card)
 2. Click **"Create Database"**
 3. Set name: `ezmsg-redis`, choose region, enable TLS
@@ -32,7 +32,7 @@ Get EzMsg running locally in **15 minutes** using free Supabase (PostgreSQL) and
 
 ---
 
-### **Step 2: Configure Environment (1 min)**
+### Step2: Configure Environment (1 min)**
 
 ```bash
 # Copy template
@@ -59,7 +59,7 @@ ENVIRONMENT=development
 
 ---
 
-### **Step 3: Initialize Database (3 min)**
+### Step3: Initialize Database (3 min)**
 
 ```bash
 # Setup Python environment
@@ -121,7 +121,7 @@ python scripts/add_quittxt_v9_q8_q21.py
 
 ---
 
-### **Step 4: Start API Server (1 min)**
+### Step4: Start API Server (1 min)**
 
 ```bash
 # Make sure you're in api/ with venv activated
@@ -139,7 +139,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8000
 
 ---
 
-### **Step 5: Start Frontend (1 min)**
+### Step5: Start Frontend (1 min)**
 
 Open a new terminal:
 
@@ -158,7 +158,7 @@ Login with:
 
 ---
 
-## ✅ Verify Everything Works
+## Verify Everything Works
 
 ### **Test API:**
 ```bash
@@ -180,7 +180,7 @@ curl -X POST http://localhost:8000/v1/protocol/start \
 
 Should return session with message text.
 
-### **Check Supabase:**
+### Check Supabase
 1. Go to Supabase dashboard → **Table Editor**
 2. You should see all tables with data
 3. Check `projects` table → Should have "QuitTxt V9 UTSA Study"
@@ -188,17 +188,17 @@ Should return session with message text.
 
 ---
 
-## 🎯 What You Can Do Now
+## What You Can Do Now
 
-1. ✅ **Test Protocol Flow** - Use Protocol API via Postman
-2. ✅ **Explore Admin UI** - Manage projects, participants, templates
-3. ✅ **Run Protocol Simulator** - Test message sequences
-4. ✅ **View Analytics** - See protocol statistics
-5. ✅ **Test All Features** - Everything works with external DBs!
+1. Test Protocol Flow - Use Protocol API via Postman
+2. Explore Admin UI - Manage projects, participants, templates
+3. Run Protocol Simulator - Test message sequences
+4. View Analytics - See protocol statistics
+5. Test All Features - Everything works with external DBs
 
 ---
 
-## 🚂 Deploy to Railway (After Testing)
+## Deploy to Railway (After Testing)
 
 Once everything works locally:
 
@@ -218,24 +218,24 @@ See `RAILWAY_DEPLOYMENT.md` for full Railway deployment guide.
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
-### **"Connection refused" for PostgreSQL**
+### "Connection refused" for PostgreSQL
 - Check DATABASE_URL has correct password
 - Make sure it starts with `postgresql+asyncpg://`
 - Test connection in Supabase SQL Editor
 
-### **"Redis connection error"**
+### "Redis connection error"
 - Make sure REDIS_URL uses `rediss://` (double s for TLS)
 - Check password is correct
 - Verify Upstash database is "Active"
 
-### **"Admin user not created"**
+### "Admin user not created"
 - Make sure database schema was created first
 - Check for errors in the Python output
 - Try the command again
 
-### **"Import script failed"**
+### "Import script failed"
 - Make sure you're in `api/` directory
 - Activate venv: `source venv/bin/activate`
 - Load env: `export $(cat ../.env.local | xargs)`
@@ -243,7 +243,7 @@ See `RAILWAY_DEPLOYMENT.md` for full Railway deployment guide.
 
 ---
 
-## 📚 More Documentation
+## More Documentation
 
 - **Setup Guide**: `SETUP_FREE_DATABASES.md` - Detailed setup instructions
 - **Railway Deploy**: `RAILWAY_DEPLOYMENT.md` - Deploy to production
@@ -252,7 +252,7 @@ See `RAILWAY_DEPLOYMENT.md` for full Railway deployment guide.
 
 ---
 
-## 💰 Cost
+## Cost
 
 **$0/month** - Both Supabase and Upstash have generous free tiers:
 - **Supabase Free**: 500MB storage, unlimited API requests
@@ -262,7 +262,7 @@ Perfect for development and testing!
 
 ---
 
-## 🎉 Success!
+## Success!
 
 You now have EzMsg running locally with cloud databases. Everything is ready to test before deploying to Railway!
 

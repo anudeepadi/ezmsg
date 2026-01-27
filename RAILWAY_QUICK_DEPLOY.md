@@ -1,6 +1,6 @@
-# ⚡ Railway Quick Deploy - 30 Minute Checklist
+# Railway Quick Deploy Checklist
 
-**Print this page or keep it open while deploying!**
+Print this page or keep it open while deploying.
 
 ---
 
@@ -9,10 +9,10 @@
 Have these ready:
 
 ```bash
-✅ Supabase DATABASE_URL (from .env.local line 20)
-✅ Redis REDIS_URL (from .env.local line 27) - optional
-✅ GitHub repository URL
-✅ Railway account (railway.app)
+- Supabase DATABASE_URL (from .env.local)
+- Redis REDIS_URL (optional)
+- GitHub repository URL
+- Railway account (railway.app)
 ```
 
 ---
@@ -43,9 +43,9 @@ Start Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 **Variables tab - paste these:**
 
 ```bash
-DATABASE_URL=postgresql+asyncpg://postgres.nkxewmxszqtjaeveimou:Factorysmokeloud2%24@aws-1-us-east-1.pooler.supabase.com:5432/postgres
+DATABASE_URL=<your-database-connection-string>
 
-JWT_SECRET=GENERATE_NEW_SECRET_HERE
+JWT_SECRET=<generate-new-secret-here>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
@@ -54,9 +54,9 @@ ENVIRONMENT=production
 DEBUG=false
 SIMULATION_MODE=false
 
-SUPABASE_URL=https://nkxewmxszqtjaeveimou.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5reGV3bXhzenF0amFldmVpbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5MzczNzAsImV4cCI6MjA4NDUxMzM3MH0.Rk2W9cqM77M36gGsmx1r9DWOFze7JkKd6Vnkzfxk_7E
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5reGV3bXhzenF0amFldmVpbW91Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkzNzM3MCwiZXhwIjoyMDg0NTEzMzcwfQ.7MQxPg8RHMxahuE1sTC-hmN6TfARoE_qKIVVzd13384
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_ANON_KEY=<redacted>
+SUPABASE_SERVICE_ROLE_KEY=<redacted>
 ```
 
 ### Generate JWT_SECRET
@@ -188,7 +188,7 @@ Start Command: python -m app.worker.scheduler
 
 ---
 
-## ✅ Deployment Complete!
+## Deployment Complete
 
 ### Your URLs (save these!)
 

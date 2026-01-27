@@ -1,10 +1,10 @@
-# 🆓 Setup Free External Databases for Local Testing
+Setup Free External Databases for Local Testing
 
 Before deploying to Railway, let's test with free external databases to ensure everything works.
 
 ---
 
-## 📋 What We'll Set Up
+What We'll Set Up
 
 1. **Supabase** - Free PostgreSQL database (500MB storage, unlimited API requests)
 2. **Upstash** - Free Redis database (10,000 commands/day)
@@ -13,7 +13,7 @@ Both services have generous free tiers perfect for testing and development.
 
 ---
 
-## 🐘 Step 1: Set Up Supabase (PostgreSQL)
+Step 1: Set Up Supabase (PostgreSQL)
 
 ### **1.1 Create Supabase Account**
 
@@ -64,7 +64,7 @@ postgresql+asyncpg://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres
 
 ---
 
-## 🔴 Step 2: Set Up Upstash (Redis)
+� Step 2: Set Up Upstash (Redis)
 
 ### **2.1 Create Upstash Account**
 
@@ -108,7 +108,7 @@ postgresql+asyncpg://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres
 
 ---
 
-## 🔧 Step 3: Configure Local Environment
+� Step 3: Configure Local Environment
 
 ### **3.1 Create `.env.local` File**
 
@@ -174,7 +174,7 @@ ln -s ../.env.local .env
 
 ---
 
-## 🗄️ Step 4: Initialize Supabase Database
+Step 4: Initialize Supabase Database
 
 ### **4.1 Test Connection**
 
@@ -279,7 +279,7 @@ asyncio.run(create_admin())
 
 ---
 
-## 🧪 Step 5: Test Locally with External Databases
+�� Step 5: Test Locally with External Databases
 
 ### **5.1 Start API Service**
 
@@ -361,7 +361,7 @@ Visit: http://localhost:3000
 
 ---
 
-## 📊 Step 6: Import Protocol Data
+Step 6: Import Protocol Data
 
 ### **6.1 Import QuitTxt V9 Protocol**
 
@@ -395,7 +395,7 @@ python scripts/add_quittxt_v9_q8_q21.py
 
 ---
 
-## ✅ Step 7: Verify Everything Works
+Step 7: Verify Everything Works
 
 ### **Checklist:**
 
@@ -410,7 +410,7 @@ python scripts/add_quittxt_v9_q8_q21.py
 
 ---
 
-## 🔍 Troubleshooting
+� Troubleshooting
 
 ### **"asyncpg.exceptions.InvalidPasswordError"**
 
@@ -442,7 +442,7 @@ This is a known issue. The worker has SQL syntax that needs fixing. For now, jus
 
 ---
 
-## 📊 Database Dashboard Access
+Database Dashboard Access
 
 ### **Supabase Dashboard:**
 - URL: https://app.supabase.com
@@ -461,7 +461,7 @@ This is a known issue. The worker has SQL syntax that needs fixing. For now, jus
 
 ---
 
-## 💰 Free Tier Limits
+Free Tier Limits
 
 ### **Supabase Free Tier:**
 - 500 MB database space
@@ -479,7 +479,7 @@ This is a known issue. The worker has SQL syntax that needs fixing. For now, jus
 
 ---
 
-## 🚀 Next Steps
+Next Steps
 
 After everything works locally:
 
@@ -491,7 +491,7 @@ After everything works locally:
 
 ---
 
-## 🔄 Using These Databases with Railway
+Using These Databases with Railway
 
 **Good news!** You can use these same external databases with Railway:
 

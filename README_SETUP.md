@@ -1,8 +1,8 @@
-# 🎯 EzMsg Setup - Current State & Next Actions
+EzMsg Setup - Current State & Next Actions
 
 ---
 
-## ✅ What's Been Completed
+What's Been Completed
 
 ### **1. Code & Features**
 - ✅ Full EzMsg messaging protocol management system implemented
@@ -35,12 +35,12 @@
 
 ---
 
-## 🔧 Current Configuration Status
+� Current Configuration Status
 
 ### **Environment File: `.env.local`**
 
 ```bash
-# ✅ CONFIGURED - Ready to use
+CONFIGURED - Ready to use
 JWT_SECRET=local-dev-secret-key-for-ezmsg-testing...
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -50,24 +50,24 @@ SIMULATION_MODE=true
 DEBUG=true
 ENVIRONMENT=development
 
-# ✅ CONFIGURED - Supabase API keys
+CONFIGURED - Supabase API keys
 SUPABASE_URL=https://nkxewmxszqtjaeveimou.supabase.co
 SUPABASE_ANON_KEY=eyJhbGci...
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
 
-# ⏳ NEEDS PASSWORD - PostgreSQL connection
+NEEDS PASSWORD - PostgreSQL connection
 DATABASE_URL=postgresql+asyncpg://postgres:YOUR_PASSWORD@db.nkxewmxszqtjaeveimou.supabase.co:5432/postgres
 #                                            ^^^^^^^^^^^
 #                                            Replace this
 
-# ⚠️ NEEDS VERIFICATION - Redis connection (SSL error)
-REDIS_URL=rediss://default:bRjLQBRYXcs5Pt1H2PNgZA7HFFDqIhaZ@redis-16847.c278.us-east-1-4.ec2.cloud.redislabs.com:16847
+�️ NEEDS VERIFICATION - Redis connection (SSL error)
+REDIS_URL=rediss://default:<password>@redis-xxxxx.c278.us-east-1-4.ec2.cloud.redislabs.com:16847
 #                                                              May need to verify in Redis Labs dashboard
 ```
 
 ---
 
-## 🚦 Next Actions (in order)
+Next Actions (in order)
 
 ### **Action 1: Get Supabase Database Password** 🎯 **DO THIS FIRST**
 
@@ -189,7 +189,7 @@ See: `RAILWAY_DEPLOYMENT.md` for complete Railway deployment instructions.
 
 ---
 
-## 📊 Files Created
+Files Created
 
 ```
 ezmsg-new/
@@ -210,7 +210,7 @@ ezmsg-new/
 
 ---
 
-## 🎓 Key Insights
+Key Insights
 
 `★ Insight ─────────────────────────────────────`
 
@@ -235,7 +235,7 @@ ezmsg-new/
 
 ---
 
-## 🆘 Troubleshooting
+Troubleshooting
 
 ### **"Can't find Supabase password"**
 - It's in the connection string from Settings → Database → Connection string → URI
@@ -252,7 +252,7 @@ ezmsg-new/
 
 ---
 
-## 📞 Current Status
+� Current Status
 
 **Blocking Issues:**
 1. Supabase DATABASE_URL needs password from dashboard

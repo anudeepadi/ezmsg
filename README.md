@@ -12,7 +12,7 @@ ezmsg-new/
 └── docker/       # Docker configuration
 ```
 
-## 🚀 Deployment
+## Deployment
 
 ### Railway (Recommended for Production)
 
@@ -31,7 +31,7 @@ Deploy to Railway cloud platform in minutes:
 
 ---
 
-## 💻 Local Development
+## Local Development
 
 ### Prerequisites
 
@@ -105,7 +105,7 @@ pip install -e .
 EZMSG_SIMULATION_MODE=true python -m app.main
 ```
 
-## 🔌 Protocol API (External Integration)
+## Protocol API (External Integration)
 
 EzMsg provides a REST API for external systems to interact with messaging protocols using API key authentication.
 

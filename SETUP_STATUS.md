@@ -1,10 +1,10 @@
-# 📊 EzMsg Setup Status
+# EzMsg Setup Status
 
 Last updated: 2026-01-20
 
 ---
 
-## ✅ Completed Steps
+## Completed Steps
 
 1. **Project Structure** - ✅ All code and services implemented
 2. **Documentation** - ✅ Deployment guides created (Railway, Quickstart, Database Setup)
@@ -15,7 +15,7 @@ Last updated: 2026-01-20
 
 ---
 
-## ⏳ Pending Steps
+## Pending Steps
 
 ### **1. Database Connection Strings**
 
