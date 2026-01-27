@@ -1,10 +1,10 @@
-# 🎯 Next Steps: Complete Database Configuration
+Next Steps: Complete Database Configuration
 
 You're almost there! Just need to verify and complete two database connection strings.
 
 ---
 
-## 📋 What You Need to Do
+What You Need to Do
 
 ### **Step 1: Get Your Supabase Connection String**
 
@@ -62,8 +62,8 @@ The Redis connection is showing an SSL error. To verify it's correct:
 3. Make sure the database status is **"Active"** (green indicator)
 4. Look for the connection string in the dashboard
 5. It should show something like:
-   - **Public endpoint**: `redis-16847.c278.us-east-1-4.ec2.cloud.redislabs.com:16847`
-   - **Password**: `bRjLQBRYXcs5Pt1H2PNgZA7HFFDqIhaZ`
+   - **Public endpoint**: `redis-xxxxx.c278.us-east-1-4.ec2.cloud.redislabs.com:16847`
+   - **Password**: `<your-redis-password>`
 
 6. The connection URL in `.env.local` should be:
    ```bash
@@ -176,7 +176,7 @@ curl http://localhost:8000/health
 
 ---
 
-## 🎉 That's It!
+That's It!
 
 Once you complete these steps, your EzMsg system will be running with cloud databases!
 
@@ -194,7 +194,7 @@ Once you complete these steps, your EzMsg system will be running with cloud data
 
 ---
 
-## 📖 More Help
+� More Help
 
 - **Quick Start**: See `QUICKSTART.md`
 - **Detailed Setup**: See `SETUP_FREE_DATABASES.md`

@@ -1,4 +1,4 @@
-# ✅ Railway Deployment Checklist
+Railway Deployment Checklist
 
 Quick reference checklist for deploying EzMsg to Railway.
 

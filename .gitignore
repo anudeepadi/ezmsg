@@ -41,3 +41,10 @@ htmlcov/
 # Misc
 *.bak
 *.tmp
+
+# Temporary files
+tmp/
+
+# Claude local files
+.claude/settings.local.json
+.claude/*.local.md

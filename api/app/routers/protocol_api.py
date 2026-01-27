@@ -1,5 +1,6 @@
 """Public API for protocol interaction via API key."""
 
+import os
 from datetime import datetime, timedelta
 from typing import Any, Optional
 from uuid import uuid4
@@ -18,8 +19,8 @@ from app.models import (
 
 router = APIRouter(tags=["Protocol API"])
 
-# Hardcoded API key for MVP - in production, store in database
-API_KEY = "iquit0-test-key-12345"
+# API key from environment variable (fallback to test key for local development)
+API_KEY = os.getenv("PROTOCOL_API_KEY", "iquit0-test-key-12345")
 
 
 class ProtocolStartRequest(BaseModel):

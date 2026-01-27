@@ -1,10 +1,10 @@
-# 🚀 Deploy EzMsg to Railway - Step-by-Step Guide
+# Deploy EzMsg to Railway - Step-by-Step Guide
 
-**Status**: ✅ Ready for Deployment
-- Database: ✅ Connected (Supabase PostgreSQL)
-- Protocol: ✅ Tested and Working
-- API: ✅ 70 Routes Active
-- Data: ✅ QuitTxt V9 Imported (63 nodes, 61 templates)
+**Status**: Ready for Deployment
+- Database: Connected (Supabase PostgreSQL)
+- Protocol: Tested and Working
+- API: 70 Routes Active
+- Data: QuitTxt V9 Imported (63 nodes, 61 templates)
 
 ---
 
@@ -64,13 +64,13 @@ Go to **Variables** tab and add these (copy from your `.env.local`):
 
 ```bash
 # Database (REQUIRED)
-DATABASE_URL=postgresql+asyncpg://postgres.nkxewmxszqtjaeveimou:Factorysmokeloud2%24@aws-1-us-east-1.pooler.supabase.com:5432/postgres
+DATABASE_URL=<set-in-railway-or-use-your-supabase-connection-string>
 
 # Redis (OPTIONAL - can omit if SSL errors persist)
-REDIS_URL=rediss://default:bRjLQBRYXcs5Pt1H2PNgZA7HFFDqIhaZ@redis-16847.c278.us-east-1-4.ec2.cloud.redislabs.com:16847
+REDIS_URL=<set-in-railway-or-use-your-redis-connection-string>
 
 # JWT Authentication (REQUIRED)
-JWT_SECRET=YOUR_SECURE_SECRET_HERE_MIN_32_CHARS
+JWT_SECRET=<generate-secure-secret-min-32-chars>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
@@ -81,9 +81,9 @@ DEBUG=false
 SIMULATION_MODE=false
 
 # Supabase (OPTIONAL - for direct Supabase client usage)
-SUPABASE_URL=https://nkxewmxszqtjaeveimou.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5reGV3bXhzenF0amFldmVpbW91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5MzczNzAsImV4cCI6MjA4NDUxMzM3MH0.Rk2W9cqM77M36gGsmx1r9DWOFze7JkKd6Vnkzfxk_7E
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5reGV3bXhzenF0amFldmVpbW91Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODkzNzM3MCwiZXhwIjoyMDg0NTEzMzcwfQ.7MQxPg8RHMxahuE1sTC-hmN6TfARoE_qKIVVzd13384
+SUPABASE_URL=<your-supabase-project-url>
+SUPABASE_ANON_KEY=<redacted>
+SUPABASE_SERVICE_ROLE_KEY=<redacted>
 ```
 
 **IMPORTANT CHANGES:**
@@ -454,15 +454,15 @@ Protocol API: _____________ (change from default!)
 
 ---
 
-## 🎉 Deployment Complete!
+## Deployment Complete
 
 Your EzMsg system is now live on Railway with:
 
-- ✅ Supabase PostgreSQL database
-- ✅ QuitTxt V9 protocol with 63 nodes
-- ✅ Protocol API for external integrations
-- ✅ Admin UI for management
-- ✅ Multi-day message scheduling
+- Supabase PostgreSQL database
+- QuitTxt V9 protocol with 63 nodes
+- Protocol API for external integrations
+- Admin UI for management
+- Multi-day message scheduling
 
 **Next Steps:**
 1. Change all default passwords and API keys
