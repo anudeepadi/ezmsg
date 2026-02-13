@@ -1,0 +1,109 @@
+# ============================================================================
+# EzMsg API — Cloud Run service definition
+# ============================================================================
+# Deploy:  gcloud run services replace infra/api-service.yaml --region=us-central1
+#
+# Before deploying, update the image tag and ensure all Secret Manager
+# secrets have been populated with real values.
+# ============================================================================
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ezmsg-api
+  labels:
+    app: ezmsg
+    component: api
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scaling
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+        # Cloud SQL connection
+        run.googleapis.com/cloudsql-instances: "PROJECT_ID:us-central1:ezmsg-db"
+        # Startup CPU boost for faster cold starts
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: ""   # Uses default Compute Engine SA
+      containers:
+        - image: us-central1-docker.pkg.dev/PROJECT_ID/ezmsg/api:latest
+          ports:
+            - name: http1
+              containerPort: 8000
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          env:
+            # ── Plain environment variables ─────────────────────────────
+            - name: ENVIRONMENT
+              value: "production"
+            - name: DEBUG
+              value: "false"
+            - name: DATABASE_POOL_SIZE
+              value: "5"
+            - name: DATABASE_MAX_OVERFLOW
+              value: "10"
+            - name: CORS_ORIGINS
+              value: '["https://ezmsg-web-HASH.run.app"]'  # Update after first deploy
+
+            # ── Secrets from Secret Manager ─────────────────────────────
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: JWT_SECRET
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: REDIS_URL
+            - name: PROTOCOL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: PROTOCOL_API_KEY
+            - name: ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: ADMIN_EMAIL
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: ADMIN_PASSWORD
+            - name: SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: SENTRY_DSN
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: ENCRYPTION_KEY

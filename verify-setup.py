@@ -21,7 +21,7 @@ async def test_redis():
 
         redis_url = os.getenv('REDIS_URL')
         if not redis_url:
-            print("❌ REDIS_URL not found in environment")
+            print("REDIS_URL not found in environment")
             return False
 
         print(f"🔍 Testing Redis connection...")
@@ -37,7 +37,7 @@ async def test_redis():
 
         # Test connection
         await client.ping()
-        print("✅ Redis connection successful!")
+        print("Redis connection successful.")
 
         # Test basic operations
         await client.set("test_key", "test_value")
@@ -45,16 +45,16 @@ async def test_redis():
         await client.delete("test_key")
 
         if value == "test_value":
-            print("✅ Redis read/write operations work!")
+            print("Redis read/write operations work.")
 
         await client.close()
         return True
 
     except ImportError:
-        print("❌ redis package not installed. Run: pip install redis")
+        print("redis package not installed. Run: pip install redis")
         return False
     except Exception as e:
-        print(f"❌ Redis connection failed: {e}")
+        print(f"Redis connection failed: {e}")
         print(f"   This might be a network or SSL issue")
         print(f"   Verify your Redis URL and that the service is active")
         return False
@@ -67,12 +67,12 @@ async def test_postgres():
 
         database_url = os.getenv('DATABASE_URL')
         if not database_url:
-            print("❌ DATABASE_URL not found in environment")
+            print("DATABASE_URL not found in environment")
             return False
 
         # Check if placeholder password still exists
         if 'YOUR_PASSWORD' in database_url:
-            print("⚠️  DATABASE_URL contains placeholder password")
+            print("DATABASE_URL contains placeholder password")
             print("   Please update .env.local with your actual Supabase password")
             print("\n📝 How to get your Supabase password:")
             print("   1. Go to https://supabase.com")
@@ -102,7 +102,7 @@ async def test_postgres():
 
         # Test connection
         version = await conn.fetchval('SELECT version()')
-        print("✅ PostgreSQL connection successful!")
+        print("PostgreSQL connection successful.")
         print(f"   Version: {version.split()[0]} {version.split()[1]}")
 
         # Check if tables exist
@@ -113,7 +113,7 @@ async def test_postgres():
         """)
 
         if tables:
-            print(f"✅ Found {len(tables)} existing tables")
+            print(f"Found {len(tables)} existing tables")
         else:
             print("ℹ️  No tables found (database schema not initialized yet)")
 
@@ -121,28 +121,28 @@ async def test_postgres():
         return True
 
     except ImportError:
-        print("❌ asyncpg package not installed. Run: pip install asyncpg")
+        print("asyncpg package not installed. Run: pip install asyncpg")
         return False
     except Exception as e:
-        print(f"❌ PostgreSQL connection failed: {e}")
+        print(f"PostgreSQL connection failed: {e}")
         return False
 
 
 async def main():
     """Run all verification tests"""
     print("=" * 60)
-    print("🚀 EzMsg Setup Verification")
+    print("EzMsg setup verification")
     print("=" * 60)
     print()
 
     # Check .env.local exists
     env_file = Path(__file__).parent / ".env.local"
     if not env_file.exists():
-        print("❌ .env.local file not found!")
+        print(".env.local file not found")
         print("   Please create it from .env.local.example")
         return
 
-    print("✅ .env.local file found")
+    print(".env.local file found")
     print()
 
     # Load environment variables
@@ -169,7 +169,7 @@ async def main():
     print("=" * 60)
 
     if redis_ok and postgres_ok:
-        print("✅ All connections successful!")
+        print("All connections successful.")
         print()
         print("📝 Next steps:")
         print("   1. Initialize database schema:")
@@ -185,18 +185,18 @@ async def main():
         print("      uvicorn app.main:app --reload --port 8000")
 
     elif redis_ok:
-        print("✅ Redis connection works")
-        print("⚠️  PostgreSQL needs configuration")
+        print("Redis connection works")
+        print("PostgreSQL needs configuration")
         print()
         print("📝 To fix PostgreSQL:")
         print("   Update DATABASE_URL in .env.local with your Supabase password")
 
     elif postgres_ok:
-        print("✅ PostgreSQL connection works")
-        print("⚠️  Redis needs configuration")
+        print("PostgreSQL connection works")
+        print("Redis needs configuration")
 
     else:
-        print("⚠️  Both connections need configuration")
+        print("Both connections need configuration")
         print()
         print("📖 See QUICKSTART.md for detailed setup instructions")
 

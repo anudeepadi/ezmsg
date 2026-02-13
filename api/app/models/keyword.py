@@ -2,7 +2,7 @@
 
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import String, Text, Boolean, ForeignKey
+from sqlalchemy import String, Text, Boolean, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -45,6 +45,7 @@ class SmsKeyword(Base, TimestampMixin):
         ForeignKey("message_templates.id"),
         nullable=True,
     )
+    message_pool: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships

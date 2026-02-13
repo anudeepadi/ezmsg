@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check app/
+
+      - name: Ruff format check
+        run: ruff format --check app/
+
+      - name: Mypy type check
+        run: mypy app/ --ignore-missing-imports
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ezmsg
+          POSTGRES_PASSWORD: ezmsg_test
+          POSTGRES_DB: ezmsg_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U ezmsg"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql+asyncpg://ezmsg:ezmsg_test@localhost:5432/ezmsg_test
+      REDIS_URL: redis://localhost:6379
+      ENVIRONMENT: test
+      JWT_SECRET: test-secret-minimum-32-characters-for-ci
+      PROTOCOL_API_KEY: test-api-key
+      ADMIN_EMAIL: test@ezmsg.local
+      ADMIN_PASSWORD: testpassword123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    strategy:
+      matrix:
+        include:
+          - service: api
+          - service: worker
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: docker build -f "${SERVICE}/Dockerfile" "${SERVICE}"

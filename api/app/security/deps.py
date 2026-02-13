@@ -15,22 +15,32 @@ async def get_current_user(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
-    """Get the current authenticated user from the access token cookie.
+    """Get the current authenticated user from Bearer header or cookie.
 
-    This dependency extracts the JWT from the 'ezmsg_access' cookie
-    and returns the corresponding user.
+    Checks the Authorization header first (for mobile/API clients),
+    then falls back to the 'ezmsg_access' cookie (for web dashboard).
 
     Args:
         request: FastAPI request object
         db: Database session
 
     Returns:
-        User object if authenticated, None otherwise
+        User object if authenticated
 
     Raises:
         HTTPException: If token is invalid or user not found
     """
-    token = request.cookies.get("ezmsg_access")
+    token = None
+
+    # Check Authorization header first (mobile / API clients)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ").strip()
+
+    # Fall back to cookie (web dashboard)
+    if not token:
+        token = request.cookies.get("ezmsg_access")
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

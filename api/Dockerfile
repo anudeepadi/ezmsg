@@ -16,8 +16,10 @@ COPY pyproject.toml README.md ./
 # Install dependencies
 RUN uv pip install --system -e .
 
-# Copy application code
+# Copy application code and Alembic config
 COPY app app/
+COPY alembic.ini alembic.ini
+COPY alembic alembic/
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app

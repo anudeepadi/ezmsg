@@ -44,12 +44,11 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://ezmsg:ezmsg_dev@postgres:5432/ezmsg
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: dev-secret-change-in-prod-minimum-32-chars
-      JWT_ALGORITHM: HS256
-      ACCESS_TOKEN_EXPIRE_MINUTES: 30
-      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      ENVIRONMENT: development
       CORS_ORIGINS: '["http://localhost:3000"]'
       SIMULATION_MODE: "true"
+      DEBUG: "true"
+      PROTOCOL_API_KEY: docker-dev-key
     depends_on:
       postgres:
         condition: service_healthy

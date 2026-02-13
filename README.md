@@ -1,225 +1,122 @@
-# EzMsg - Messaging Protocol Management System
+# EzMsg — Messaging Protocol Management System
 
-A full-stack application for managing messaging protocols in health interventions, built for the QuitTxt Research Study.
+A full-stack platform for managing multi-day, personalized messaging protocols in health interventions. Built for the **QuitTxt Research Study** (UTSA smoking cessation) with bilingual support (EN/ES).
 
-## Architecture
+```
+Frontend (Next.js 14)          Mobile Apps (RN / Flutter / Swift)
+        |                                |
+        +----------------+---------------+
+                         v
+              FastAPI Backend (Python 3.12)
+              ~70 routes, JWT auth, Protocol engine
+                         |
+          +--------------+------------------+
+          v              v                  v
+     PostgreSQL      Redis Cache      Worker (Scheduler)
+     (Supabase)      (Upstash)        Background delivery
+                                           |
+                                     +-----+-----+
+                                     v           v
+                                  Twilio       FCM
+                                  (SMS)     (Push Notif)
+```
+
+## Project Structure
 
 ```
 ezmsg-new/
-├── api/          # FastAPI backend (Python 3.12)
-├── web/          # Next.js 14 frontend (React 18)
-├── worker/       # Background scheduler (Python 3.12)
-└── docker/       # Docker configuration
+  api/            FastAPI backend, 19 SQLAlchemy models, JWT auth
+  web/            Next.js 14 admin dashboard
+  worker/         Background scheduler for message delivery
+  docker/         Docker Compose for local development
 ```
 
-## 🚀 Deployment
+## Quick Start (Local Development)
 
-### Railway (Recommended for Production)
-
-Deploy to Railway cloud platform in minutes:
-
-1. **Quick Deploy**: See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for complete guide
-2. **One-Click CLI**: `./railway-deploy.sh` (requires Railway CLI)
-3. **Automatic**: Railway auto-deploys from GitHub on every push
-
-**What's included:**
-- PostgreSQL database (managed)
-- Redis cache (managed)
-- Automatic HTTPS
-- Zero-downtime deployments
-- Monitoring & logs
-
----
-
-## 💻 Local Development
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Node.js 20+ (for local frontend development)
-- Python 3.12+ (for local backend development)
-
-### Running with Docker
-
-1. Start all services:
+See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for full setup instructions.
 
 ```bash
-cd docker
-docker-compose up -d
+# Option 1: Docker (easiest)
+cd docker && docker-compose up -d
+
+# Option 2: Manual
+cp .env.local.example .env.local   # Fill in DB credentials
+cd api && pip install -e . && uvicorn app.main:app --reload
 ```
 
-2. Access the applications:
-   - Frontend: http://localhost:3000
-   - API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
+## Deployment
 
-3. Default credentials:
-   - Email: `admin@example.com`
-   - Password: `admin123`
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for Railway deployment guide.
 
-### Local Development
+**Services to deploy:**
+| Service | Dockerfile | Port | Purpose |
+|---------|-----------|------|---------|
+| API | `api/Dockerfile` | 8000 | REST API + Protocol engine |
+| Worker | `worker/Dockerfile` | none | Background message delivery |
+| Web | `web/Dockerfile` | 3000 | Admin dashboard |
 
-#### Backend (API)
+**External services:** PostgreSQL (Supabase), Redis (Upstash)
 
-```bash
-cd api
+## Protocol API (Mobile Integration)
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -e .
-
-# Start the server
-uvicorn app.main:app --reload --port 8000
-```
-
-#### Frontend (Web)
-
-```bash
-cd web
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-The frontend proxies API requests to `http://localhost:8000`.
-
-#### Worker
-
-```bash
-cd worker
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -e .
-
-# Run in simulation mode
-EZMSG_SIMULATION_MODE=true python -m app.main
-```
-
-## 🔌 Protocol API (External Integration)
-
-EzMsg provides a REST API for external systems to interact with messaging protocols using API key authentication.
-
-### Quick Start
+See **[MOBILE_APP_INTEGRATION.md](./MOBILE_APP_INTEGRATION.md)** for mobile developer guide.
 
 ```bash
 # Start a protocol session
-curl -X POST http://localhost:8000/v1/protocol/start \
+curl -X POST https://your-api.railway.app/v1/protocol/start \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: iquit0-test-key-12345" \
-  -d '{
-    "project_id": 7,
-    "language": "en",
-    "initial_response": "iquit0"
-  }'
+  -H "X-API-Key: $PROTOCOL_API_KEY" \
+  -d '{"project_id": 7, "language": "en"}'
 
-# Send a response to continue the flow
-curl -X POST http://localhost:8000/v1/protocol/respond \
+# Send a response
+curl -X POST https://your-api.railway.app/v1/protocol/respond \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: iquit0-test-key-12345" \
-  -d '{
-    "session_id": "your-session-id-here",
-    "response": "1"
-  }'
+  -H "X-API-Key: $PROTOCOL_API_KEY" \
+  -d '{"session_id": "uuid-here", "response": "1"}'
 ```
-
-### Use Cases
-- Integration with external chatbots
-- Testing protocol flows via Postman
-- Mobile app direct API access
-- Third-party system integration
-
-**API Key**: `iquit0-test-key-12345` (update in production: `api/app/routers/protocol_api.py`)
-
----
 
 ## Features
 
-### Admin Dashboard
-- Project management (CRUD)
-- Participant enrollment and tracking
-- Message template creation with i18n (EN/ES)
-- Node graph editor for messaging workflows
-- Variable management for personalization
-- Analytics and delivery statistics
-- Scheduler monitoring
+**Admin Dashboard** — Project/participant management, visual node graph editor, bilingual template editor, analytics, scheduler monitoring
 
-### Messaging Engine
-- Scheduled message processing
-- FCM push notifications (for Flutter app)
-- Variable substitution in templates
-- Quick reply handling
-- Keyword processing (STOP, HELP, etc.)
-- Exponential backoff retry logic
+**Protocol Engine** — Stateful session management (Redis-backed), conditional branching, timing/scheduling, variable substitution, keyword handling (STOP, HELP, etc.)
 
-### API Endpoints
+**Message Delivery** — FCM push notifications, Twilio SMS, exponential backoff retries (8 max), idempotency keys, simulation mode for testing
 
-#### Authentication (`/v1/auth/*`)
-- `POST /login` - Login with email/password
-- `POST /logout` - Logout
-- `POST /refresh` - Refresh access token
-- `GET /me` - Get current user
+**Security** — JWT (HS256) via HttpOnly cookies, RBAC (Admin/Researcher/Operator), rate limiting, bcrypt password hashing
 
-#### Admin (`/v1/admin/*`)
-- Projects, Participants, Templates, Nodes, Variables
-- Analytics (overview, delivery stats)
+## API Endpoints
 
-#### Scheduler (`/v1/scheduler/*`)
-- Queue health monitoring
-- Message requeue/abort operations
+| Group | Prefix | Key Routes |
+|-------|--------|------------|
+| Auth | `/v1/auth` | login, register, refresh, logout, me |
+| Admin | `/v1/admin` | Projects, Participants, Templates, Nodes, Variables, Analytics |
+| Protocol | `/v1/protocol` | start, respond, session status (API key auth) |
+| Public | `/v1/public` | Enrollment, participant status, FCM token, language switch |
+| Scheduler | `/v1/scheduler` | Queue health, requeue, abort |
+| Webhooks | `/v1/webhooks` | Twilio inbound/status, FCM token refresh, quick replies |
 
-#### Webhooks (`/v1/webhooks/*`)
-- Twilio SMS inbound/status
-- FCM token refresh
-- App quick replies
+## Database (19 tables)
 
-## Database Schema
-
-The system uses PostgreSQL with the following core tables:
-
-- `users` - System users (admin, researcher, operator)
-- `projects` - Study containers
-- `participants` - Enrolled recipients
-- `variables` / `participant_variable_values` - Personalization
-- `message_templates` / `message_template_texts` - i18n content
-- `messaging_nodes` / `messaging_node_edges` - Workflow graph
-- `scheduled_messages` - Worker queue
-- `incoming_messages` - Inbound message log
-- `keywords` - Keyword triggers
+Core tables: `users`, `projects`, `participants`, `message_templates`, `message_template_texts`, `messaging_nodes`, `messaging_node_edges`, `scheduled_messages`, `variables`, `participant_variable_values`, `timing_elements`, `conditional_expressions`, `incoming_messages`, `sms_keywords`, `available_languages`
 
 ## Environment Variables
 
-### API
-```env
-EZMSG_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/ezmsg
-EZMSG_SECRET_KEY=your-secret-key-here
-EZMSG_DEBUG=false
-```
+See `.env.local.example` (development) and `.env.railway.example` (production).
 
-### Worker
-```env
-EZMSG_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/ezmsg
-EZMSG_SIMULATION_MODE=true
-EZMSG_POLL_INTERVAL_SECONDS=5
-EZMSG_BATCH_SIZE=50
-```
+**Required in production:** `JWT_SECRET`, `PROTOCOL_API_KEY`, `DATABASE_URL`, `REDIS_URL`
 
-## Design System
+## QuitTxt V9 Protocol Data
 
-The frontend uses a light theme inspired by arnaud.ai:
+| Item | Count |
+|------|-------|
+| Messaging nodes | 63 |
+| Message templates | 61 (bilingual EN/ES) |
+| Variables | 12 |
+| Timing elements | 14 |
+| Keywords | 20+ (EN + ES) |
 
-- **Typography**: Source Serif 4 (headings), Inter (body), JetBrains Mono (code)
-- **Colors**: Light background (#fafafa), subtle borders, sophisticated contrast
-- **Components**: Minimal, clean interfaces with generous whitespace
+Import script: `api/scripts/import_quittxt_v9_protocol.py`
 
 ## License
 

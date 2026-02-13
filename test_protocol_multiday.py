@@ -8,6 +8,7 @@ using the Protocol API (HTTP endpoints).
 import asyncio
 import httpx
 from datetime import datetime, timedelta
+import os
 from pathlib import Path
 from dotenv import load_dotenv
 import json
@@ -18,7 +19,7 @@ load_dotenv(Path('.env.local'))
 
 # API Configuration
 API_BASE_URL = "http://localhost:8000/v1"
-API_KEY = "iquit0-test-key-12345"
+API_KEY = os.getenv("PROTOCOL_API_KEY", "dev-change-me")
 PROJECT_ID = 7  # QuitTxt V9 UTSA Study
 
 # Test scenarios for user inputs
@@ -110,7 +111,7 @@ async def test_protocol_scenario(scenario: Dict[str, str], max_steps: int = 20) 
     try:
         response = await call_api("POST", "/protocol/start", start_data)
     except httpx.HTTPStatusError as e:
-        print(f"\n❌ API Error: {e}")
+        print(f"\nAPI error: {e}")
         print(f"Response: {e.response.text}")
         return {"error": str(e)}
 
@@ -146,7 +147,7 @@ async def test_protocol_scenario(scenario: Dict[str, str], max_steps: int = 20) 
             else:
                 user_input = "1"  # Default response
 
-            print(f"\n→ Sending user response: '{user_input}'")
+            print(f"\nSending user response: '{user_input}'")
 
             try:
                 current_response = await call_api(
@@ -158,7 +159,7 @@ async def test_protocol_scenario(scenario: Dict[str, str], max_steps: int = 20) 
                     }
                 )
             except httpx.HTTPStatusError as e:
-                print(f"\n❌ API Error: {e}")
+                print(f"\nAPI error: {e}")
                 print(f"Response: {e.response.text}")
                 break
 
@@ -186,12 +187,12 @@ async def test_protocol_scenario(scenario: Dict[str, str], max_steps: int = 20) 
 
             # Check if terminal
             if current_response['message']['is_terminal']:
-                print("\n✅ Reached terminal node - protocol complete!")
+                print("\nReached terminal node - protocol complete.")
                 break
         else:
             # Message doesn't expect reply - would be sent at scheduled time
             # In real implementation, we'd wait for the scheduled time
-            print("\n⏳ This message would be sent automatically at scheduled time")
+            print("\nThis message would be sent automatically at scheduled time.")
             print("   (In production, this waits for the timing interval)")
 
             # For testing, we'll stop here as we can't simulate time passing
@@ -201,7 +202,7 @@ async def test_protocol_scenario(scenario: Dict[str, str], max_steps: int = 20) 
     # Cleanup
     try:
         await call_api("DELETE", f"/protocol/session/{session_id}")
-        print(f"\n✅ Session {session_id} deleted")
+        print(f"\nSession {session_id} deleted")
     except:
         pass
 
@@ -258,10 +259,10 @@ async def main():
         async with httpx.AsyncClient() as client:
             response = await client.get("http://localhost:8000/health")
             health = response.json()
-            print(f"\n✅ API Status: {health['status']}")
+            print(f"\nAPI Status: {health['status']}")
     except Exception as e:
-        print(f"\n❌ API not reachable: {e}")
-        print("\n⚠️  Please start the API server first:")
+        print(f"\nAPI not reachable: {e}")
+        print("\nPlease start the API server first:")
         print("   cd api")
         print("   source venv/bin/activate")
         print("   export $(cat ../.env.local | xargs)")
@@ -287,10 +288,10 @@ async def main():
 
     for result in results:
         if 'error' in result:
-            print(f"\n❌ {result.get('scenario', 'Unknown')}: Failed")
+            print(f"\n{result.get('scenario', 'Unknown')}: Failed")
             continue
 
-        print(f"\n✅ {result['scenario']}")
+        print(f"\n{result['scenario']}")
         print(f"   Session ID: {result['session_id']}")
         print(f"   Total Steps: {result['total_steps']}")
 
@@ -298,7 +299,7 @@ async def main():
         if result['timing_intervals']:
             print(f"\n   Timing Intervals:")
             for interval in result['timing_intervals'][:5]:  # Show first 5
-                print(f"     Step {interval['from_step']} → {interval['to_step']}: "
+                print(f"     Step {interval['from_step']} -> {interval['to_step']}: "
                       f"{interval['interval_minutes']} minutes")
 
             # Calculate total duration
@@ -314,100 +315,40 @@ async def main():
     print("KEY FINDINGS")
     print("="*70)
 
-    print("\n✅ Protocol API is functional")
-    print("✅ Session management works correctly")
-    print("✅ User input handling is operational")
-    print("✅ Edge traversal logic is correct")
-    print("✅ Timing calculations are accurate")
+    print("\nProtocol API is functional")
+    print("Session management works correctly")
+    print("User input handling is operational")
+    print("Edge traversal logic is correct")
+    print("Timing calculations are accurate")
 
     print("\n" + "="*70)
     print("NEXT STEPS FOR DEPLOYMENT")
     print("="*70)
 
     print("""
-1. ✅ Database Configuration
-   - Supabase PostgreSQL is connected and working
-   - Database schema is initialized
-   - Protocol data is imported (63 nodes, 61 templates)
+Next steps (deployment-oriented):
 
-2. ⚠️  Redis Cache (Optional)
-   - Currently showing SSL errors
-   - Non-critical for MVP (used only for caching)
-   - Can deploy without Redis initially
+1) Database configuration
+   - PostgreSQL reachable
+   - Schema initialized
+   - Protocol data imported
 
-3. 📋 Pre-Deployment Checklist:
-   ✅ Database connection working
-   ✅ API endpoints tested
-   ✅ Protocol flow validated
-   ✅ User input handling verified
-   ✅ Timing intervals calculated correctly
+2) Redis (optional)
+   - Used for caching/sessions depending on your setup
 
-4. 🚀 Railway Deployment Steps:
+3) Pre-deployment checklist
+   - Database connection working
+   - API endpoints tested
+   - Protocol flow validated
 
-   A. Create Railway Project:
-      - Go to railway.app
-      - Create new project
-      - Add "Empty Service" for API
-      - Add "Empty Service" for Worker (optional, for scheduler)
-      - Add "Empty Service" for Web (Next.js frontend)
-
-   B. Configure API Service:
-      - Connect your GitHub repository
-      - Set root directory: /api
-      - Add environment variables from .env.local:
-        * DATABASE_URL (same Supabase URL)
-        * REDIS_URL (same Redis Labs URL, or omit if not working)
-        * JWT_SECRET
-        * JWT_ALGORITHM
-        * CORS_ORIGINS (update to include Railway domain)
-        * SIMULATION_MODE=false (for production)
-        * DEBUG=false
-        * ENVIRONMENT=production
-
-   C. Configure Web Service:
-      - Set root directory: /web
-      - Add environment variable:
-        * NEXT_PUBLIC_API_URL (Railway API service URL)
-
-   D. Configure Worker Service (optional):
-      - Set root directory: /api
-      - Change start command to run scheduler
-      - Use same environment variables as API
-
-   E. Deploy:
-      - Railway will auto-deploy on git push
-      - Monitor logs for any issues
-      - Test API endpoints: https://your-api.railway.app/health
-
-5. 📊 Post-Deployment Testing:
-   - Test Protocol API with external tools (Postman)
-   - Verify admin login works
-   - Create test participant and verify messages schedule correctly
-   - Monitor logs for 24 hours
-
-6. 🔐 Production Security:
-   - Change JWT_SECRET to a secure random value
-   - Update API_KEY in protocol_api.py (use environment variable)
-   - Set up proper authentication for admin endpoints
-   - Enable rate limiting
-   - Review CORS settings
-
-7. 📈 Monitoring Setup:
-   - Set up Railway metrics
-   - Configure alerts for errors
-   - Monitor database connections
-   - Track API response times
-
-8. 🎯 Optional Enhancements:
-   - Fix Redis SSL connection (or use Railway Redis addon)
-   - Set up automated backups for Supabase
-   - Configure CDN for media files
-   - Set up custom domain
-   - Enable logging aggregation
+4) Deploy on Railway
+   - Create services (API, Web, optional Worker)
+   - Set environment variables (DATABASE_URL, optional REDIS_URL, JWT_SECRET, CORS_ORIGINS, PROTOCOL_API_KEY)
+   - Verify health endpoint and admin login
 """)
 
     print("\n" + "="*70)
-    print("Test Complete! 🎉")
+    print("Test complete.")
     print("="*70)
     print(f"\nThe protocol is working correctly and ready for deployment.")
     print(f"See RAILWAY_DEPLOYMENT.md for detailed deployment instructions.")

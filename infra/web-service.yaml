@@ -1,0 +1,57 @@
+# ============================================================================
+# EzMsg Web (Next.js) — Cloud Run service definition
+# ============================================================================
+# Deploy:  gcloud run services replace infra/web-service.yaml --region=us-central1
+# ============================================================================
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ezmsg-web
+  labels:
+    app: ezmsg
+    component: web
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scaling
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+        # Startup CPU boost for faster cold starts
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: ""   # Uses default Compute Engine SA
+      containers:
+        - image: us-central1-docker.pkg.dev/PROJECT_ID/ezmsg/web:latest
+          ports:
+            - name: http1
+              containerPort: 3000
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+          startupProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          env:
+            - name: NODE_ENV
+              value: "production"
+            # Set this to the Cloud Run URL of the API service after first deploy.
+            # Example: https://ezmsg-api-HASH.us-central1.run.app/v1
+            - name: NEXT_PUBLIC_API_URL
+              value: "https://ezmsg-api.run.app/v1"

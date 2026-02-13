@@ -10,6 +10,7 @@ import httpx
 from httpx import ASGITransport
 
 from app.main import app
+from app.config import settings
 
 
 @pytest.fixture(scope="session")
@@ -33,10 +34,24 @@ async def auth_client() -> AsyncGenerator[httpx.AsyncClient, None]:
     """Create an authenticated client with admin credentials."""
     transport = ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        # Login to get cookies
+        email = os.getenv("ADMIN_EMAIL", "admin@example.com")
+        password = os.getenv("ADMIN_PASSWORD", "admin123")
         response = await client.post(
             "/v1/auth/login",
-            json={"email": "admin@example.com", "password": "admin123"}
+            json={"email": email, "password": password},
         )
-        # Cookies are automatically stored in the client session
+        assert response.status_code == 200, f"Auth failed: {response.text}"
+        yield client
+
+
+@pytest_asyncio.fixture
+async def protocol_client() -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Create an HTTP client with protocol API key header."""
+    transport = ASGITransport(app=app)
+    api_key = settings.protocol_api_key
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"X-API-Key": api_key},
+    ) as client:
         yield client

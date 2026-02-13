@@ -1,10 +1,17 @@
 """Worker configuration."""
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Worker settings."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="EZMSG_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
     # Database
     database_url: str = "postgresql+asyncpg://ezmsg:ezmsg_dev@localhost:5432/ezmsg"
@@ -19,15 +26,20 @@ class Settings(BaseSettings):
     initial_retry_delay_seconds: int = 60
     max_retry_delay_seconds: int = 3600
 
-    # FCM
+    # Twilio
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_phone_number: str = ""
+
+    # FCM (Firebase Cloud Messaging)
     fcm_credentials_path: str = ""
+    firebase_credentials_json: str = ""  # JSON string for Cloud Run secrets
+
+    # Sentry
+    sentry_dsn: str = ""
 
     # Simulation mode (for development)
     simulation_mode: bool = True
-
-    class Config:
-        env_prefix = "EZMSG_"
-        env_file = ".env"
 
 
 settings = Settings()

@@ -1,36 +1,55 @@
 """Database seeding script.
 
-This script creates an admin user if one doesn't exist.
-Safe to run multiple times - it will skip if admin already exists.
+Creates an admin user on first run using credentials from environment variables.
+Skips if an admin already exists. Never ships with hardcoded passwords.
 """
 
 import asyncio
+import logging
+import secrets
+
 from sqlalchemy import select
 
-from app.database.engine import engine, async_session_maker
+from app.config import settings
+from app.database.engine import async_session_maker
 from app.models.user import User, UserRole
 from app.security.password import hash_password
 
+logger = logging.getLogger(__name__)
+
 
 async def seed_admin_user() -> None:
-    """Create default admin user if it doesn't exist."""
-    print("Seeding database with admin user...")
+    """Create default admin user if none exists."""
+    logger.info("Checking for existing admin user...")
 
     async with async_session_maker() as session:
-        # Check if admin user already exists
         result = await session.execute(
-            select(User).where(User.email == "admin@example.com")
+            select(User).where(User.role == UserRole.ADMIN)
         )
         existing_admin = result.scalar_one_or_none()
 
         if existing_admin:
-            print("Admin user already exists. Skipping.")
+            logger.info("Admin user already exists: %s", existing_admin.email)
             return
 
-        # Create admin user
+        # Determine credentials from env vars or generate a one-time password
+        email = settings.admin_email
+        password = settings.admin_password
+
+        if not password:
+            if settings.is_production:
+                logger.warning(
+                    "ADMIN_PASSWORD not set in production. "
+                    "Skipping admin seed. Create an admin via the register endpoint."
+                )
+                return
+            # Development: generate a random password and log it once
+            password = secrets.token_urlsafe(16)
+            logger.warning("Generated admin password (save this): %s", password)
+
         admin_user = User(
-            email="admin@example.com",
-            password_hash=hash_password("admin123"),
+            email=email,
+            password_hash=hash_password(password),
             full_name="System Administrator",
             role=UserRole.ADMIN,
             is_active=True,
@@ -39,16 +58,16 @@ async def seed_admin_user() -> None:
         await session.commit()
         await session.refresh(admin_user)
 
-        print(f"✅ Created admin user: {admin_user.email} (ID: {admin_user.id})")
+        logger.info("Created admin user: %s (ID: %d)", admin_user.email, admin_user.id)
 
 
 async def seed_db() -> None:
     """Seed the database with initial data."""
     try:
         await seed_admin_user()
-        print("Database seeding complete!")
+        logger.info("Database seeding complete")
     except Exception as e:
-        print(f"Error seeding database: {e}")
+        logger.exception("Error seeding database: %s", e)
         raise
 
 

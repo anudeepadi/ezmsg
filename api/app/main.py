@@ -1,56 +1,86 @@
 """FastAPI application factory and entry point."""
 
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.database.engine import engine
+from app.logging_config import setup_logging
+from app.rate_limit import limiter
 from app.routers import auth, admin, public, scheduler, webhooks, protocol_api
+
+# Configure logging before anything else
+setup_logging()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup/shutdown events."""
-    # Startup
-    print(f"Starting {settings.app_name}...")
-    print(f"Environment: {settings.environment}")
-    print(f"Simulation mode: {settings.simulation_mode}")
-    print(f"Database URL: {settings.database_url[:50]}...")  # Print first 50 chars
+    logger.info("Starting %s (env=%s, simulation=%s)", settings.app_name, settings.environment, settings.simulation_mode)
 
-    # Initialize database tables
     from app.database.init_db import init_db
     from app.database.seed_db import seed_db
     try:
         await init_db()
         await seed_db()
-        print("✅ Database initialization and seeding completed successfully")
+        logger.info("Database initialization and seeding completed successfully")
     except Exception as e:
-        import traceback
-        print(f"❌ Database initialization failed:")
-        print(f"Error: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
-        print("Application will continue, but database may not be ready")
+        logger.exception("Database initialization failed: %s", e)
+        logger.warning("Application will continue, but database may not be ready")
 
     yield
 
-    # Shutdown
-    print("Shutting down...")
+    logger.info("Shutting down...")
+    from app.redis import close_redis
+    await close_redis()
     await engine.dispose()
+
+
+def _init_sentry() -> None:
+    """Initialize Sentry error tracking if DSN is configured."""
+    if not settings.sentry_dsn:
+        return
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.environment,
+            traces_sample_rate=0.1 if settings.is_production else 1.0,
+            integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+            send_default_pii=False,
+        )
+        logger.info("Sentry initialized (env=%s)", settings.environment)
+    except ImportError:
+        logger.warning("sentry-sdk not installed, skipping Sentry init")
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    _init_sentry()
+    enable_docs = settings.debug or not settings.is_production
+
     app = FastAPI(
         title=settings.app_name,
         description="Messaging Protocol Management System for Health Interventions",
         version="0.1.0",
-        docs_url="/docs" if settings.debug else None,
-        redoc_url="/redoc" if settings.debug else None,
+        docs_url="/docs" if enable_docs else None,
+        redoc_url="/redoc" if enable_docs else None,
         lifespan=lifespan,
     )
+
+    # Rate limiting
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # CORS middleware
     app.add_middleware(
@@ -80,59 +110,18 @@ def create_app() -> FastAPI:
 
     @app.get("/debug/db")
     async def debug_db():
-        """Debug endpoint to test database connectivity."""
+        """Database connectivity check. Only returns connection status, never data."""
+        if settings.is_production:
+            return {"status": "disabled_in_production"}
+
         from sqlalchemy import text
-        from app.database.session import get_db
-        from fastapi import Depends
-        from sqlalchemy.ext.asyncio import AsyncSession
-
-        async def test_db(db: AsyncSession = Depends(get_db)):
-            try:
-                # Simple query to test connection
-                result = await db.execute(text("SELECT 1 as test"))
-                value = result.scalar()
-
-                # Try to count users
-                result = await db.execute(text("SELECT COUNT(*) FROM users"))
-                user_count = result.scalar()
-
-                return {
-                    "status": "success",
-                    "connection": "working",
-                    "test_value": value,
-                    "user_count": user_count,
-                }
-            except Exception as e:
-                import traceback
-                return {
-                    "status": "error",
-                    "error": str(e),
-                    "traceback": traceback.format_exc(),
-                }
-
-        # Call the dependency manually
         from app.database.engine import async_session_maker
         async with async_session_maker() as session:
             try:
-                result = await session.execute(text("SELECT 1 as test"))
-                value = result.scalar()
-
-                result = await session.execute(text("SELECT COUNT(*) FROM users"))
-                user_count = result.scalar()
-
-                return {
-                    "status": "success",
-                    "connection": "working",
-                    "test_value": value,
-                    "user_count": user_count,
-                }
+                await session.execute(text("SELECT 1"))
+                return {"status": "connected"}
             except Exception as e:
-                import traceback
-                return {
-                    "status": "error",
-                    "error": str(e),
-                    "traceback": traceback.format_exc(),
-                }
+                return {"status": "error", "error": str(e)}
 
     return app
 

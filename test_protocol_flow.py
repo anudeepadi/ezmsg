@@ -162,11 +162,11 @@ async def test_protocol_flow():
         print("TEST 6: Protocol Flow Summary")
         print("=" * 60)
 
-        print(f"\n✅ Protocol Engine initialized successfully")
-        print(f"✅ Message routing works correctly")
-        print(f"✅ Timing elements are configured")
-        print(f"✅ Input handling is functional")
-        print(f"✅ Edge conditions are set up")
+        print("\nProtocol Engine initialized successfully")
+        print("Message routing works correctly")
+        print("Timing elements are configured")
+        print("Input handling is functional")
+        print("Edge conditions are set up")
 
         print("\n" + "=" * 60)
         print("Multi-Day Simulation")

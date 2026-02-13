@@ -18,5 +18,5 @@ COPY app app/
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Run the worker
+# No HTTP port — this is a background worker process
 CMD ["python", "-m", "app.main"]

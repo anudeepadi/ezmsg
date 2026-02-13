@@ -1,6 +1,8 @@
 """Public API for protocol interaction via API key."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import logging
+import secrets
 from typing import Any, Optional
 from uuid import uuid4
 
@@ -13,26 +15,36 @@ from sqlalchemy.orm import selectinload
 from app.database.session import get_db
 from app.models import (
     Project, MessagingNode, MessagingNodeEdge,
-    MessageTemplate, MessageTemplateText, TimingElement
+    MessageTemplate, MessageTemplateText, TimingElement,
+    Participant, ParticipantVariableValue,
 )
+from app.config import settings
+from app.redis import save_session, get_session, delete_session
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Protocol API"])
-
-# Hardcoded API key for MVP - in production, store in database
-API_KEY = "iquit0-test-key-12345"
 
 
 class ProtocolStartRequest(BaseModel):
     """Request to start a protocol session."""
     project_id: int
     language: str = "en"  # "en" or "es"
-    initial_response: Optional[str] = None  # e.g., "iquit0" for immediate quit
+    participant_uuid: str | None = None  # Link to enrolled participant
+    timezone: str | None = None  # e.g., "America/Chicago"
+    initial_response: str | None = None  # e.g., "iquit0" for immediate quit
 
 
 class ProtocolResponseRequest(BaseModel):
     """Request to send a response in an ongoing session."""
     session_id: str
     response: str  # User's response (e.g., "1", "YES", "NO")
+
+
+class ProtocolResumeRequest(BaseModel):
+    """Request to resume a session for a participant."""
+    participant_uuid: str
+    language: str | None = None  # Override language (uses participant's if omitted)
 
 
 class ProtocolMessage(BaseModel):
@@ -51,18 +63,20 @@ class ProtocolSessionResponse(BaseModel):
     project_name: str
     current_node_id: int
     current_node_name: str
+    participant_uuid: str | None = None
     message: ProtocolMessage
     session_time: str
     next_scheduled_at: Optional[str] = None
 
 
-# In-memory session storage (use Redis in production)
-SESSIONS: dict[str, dict[str, Any]] = {}
-
-
 def verify_api_key(x_api_key: str = Header(...)) -> str:
     """Verify API key from header."""
-    if x_api_key != API_KEY:
+    if not settings.protocol_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Protocol API key not configured. Set PROTOCOL_API_KEY env var.",
+        )
+    if not secrets.compare_digest(x_api_key, settings.protocol_api_key):
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
 
@@ -222,7 +236,7 @@ async def start_protocol_session(
 
     Example:
         POST /v1/protocol/start
-        Headers: X-API-Key: iquit0-test-key-12345
+        Headers: X-API-Key: YOUR_PROTOCOL_API_KEY
         Body: {
             "project_id": 7,
             "language": "en",
@@ -241,9 +255,29 @@ async def start_protocol_session(
     if not entry_node:
         raise HTTPException(status_code=400, detail="No entry node found in protocol")
 
+    # Resolve participant if participant_uuid provided
+    participant: Participant | None = None
+    if request.participant_uuid:
+        result = await db.execute(
+            select(Participant).where(
+                Participant.uu_id == request.participant_uuid,
+                Participant.project_id == request.project_id,
+            )
+        )
+        participant = result.scalar_one_or_none()
+        if not participant:
+            raise HTTPException(status_code=404, detail="Participant not found in project")
+
+        # Save timezone to participant if provided
+        if request.timezone:
+            extra = dict(participant.extra_data or {})
+            extra["timezone"] = request.timezone
+            participant.extra_data = extra
+            await db.flush()
+
     # Create session
     session_id = str(uuid4())
-    current_time = datetime.now()
+    current_time = datetime.now(timezone.utc)
 
     # Start at entry node
     current_node = entry_node
@@ -298,14 +332,26 @@ async def start_protocol_session(
         current_time
     )
 
-    # Store session
-    SESSIONS[session_id] = {
+    # Build session data for Redis
+    session_data: dict[str, Any] = {
         "project_id": request.project_id,
         "language": request.language,
         "current_node_id": current_node.id,
         "current_time": current_time.isoformat(),
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    if participant:
+        session_data["participant_id"] = participant.id
+        session_data["participant_uuid"] = participant.uu_id
+
+        # Persist current_node_id to participant for session recovery
+        extra = dict(participant.extra_data or {})
+        extra["current_node_id"] = current_node.id
+        extra["session_id"] = session_id
+        participant.extra_data = extra
+        await db.flush()
+
+    await save_session(session_id, session_data)
 
     return ProtocolSessionResponse(
         session_id=session_id,
@@ -313,6 +359,7 @@ async def start_protocol_session(
         project_name=ctx["project"].name,
         current_node_id=current_node.id,
         current_node_name=current_node.name,
+        participant_uuid=participant.uu_id if participant else None,
         message=ProtocolMessage(
             message_text=message_text,
             media_url=media_url,
@@ -339,14 +386,14 @@ async def respond_to_protocol(
 
     Example:
         POST /v1/protocol/respond
-        Headers: X-API-Key: iquit0-test-key-12345
+        Headers: X-API-Key: YOUR_PROTOCOL_API_KEY
         Body: {
             "session_id": "uuid-here",
             "response": "1"
         }
     """
-    # Get session
-    session = SESSIONS.get(request.session_id)
+    # Get session from Redis
+    session = await get_session(request.session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found or expired")
 
@@ -415,9 +462,39 @@ async def respond_to_protocol(
         ctx["adjacency"]
     )
 
-    # Update session
+    # Persist variable value if the edge carries a variable assignment
+    participant_uuid: str | None = session.get("participant_uuid")
+    participant_id: int | None = session.get("participant_id")
+
+    if participant_id and next_edge.condition_expression_id is None:
+        # Check if the current (source) node has an associated variable via its
+        # exec_commands or the edge's SmsKeyword-style variable_id.  In our
+        # graph model, edges don't carry variable_id directly — but the *source*
+        # node's template may be collecting a value.  We look for variables
+        # referenced by the node's answered_template or the node itself.
+        await _maybe_persist_variable(
+            db, current_node, next_edge, participant_id, request.response,
+        )
+
+    # Update session in Redis
     session["current_node_id"] = next_node.id
     session["current_time"] = next_time.isoformat()
+    await save_session(request.session_id, session)
+
+    # Persist current_node_id to participant extra_data for session recovery
+    if participant_id:
+        result = await db.execute(
+            select(Participant).where(Participant.id == participant_id)
+        )
+        participant = result.scalar_one_or_none()
+        if participant:
+            extra = dict(participant.extra_data or {})
+            extra["current_node_id"] = next_node.id
+            extra["session_id"] = request.session_id
+            extra["last_response"] = request.response
+            extra["last_response_at"] = next_time.isoformat()
+            participant.extra_data = extra
+            await db.flush()
 
     # Calculate next scheduled time
     next_scheduled = _calculate_next_time(
@@ -432,6 +509,7 @@ async def respond_to_protocol(
         project_name=ctx["project"].name,
         current_node_id=next_node.id,
         current_node_name=next_node.name,
+        participant_uuid=participant_uuid,
         message=ProtocolMessage(
             message_text=message_text,
             media_url=media_url,
@@ -441,6 +519,66 @@ async def respond_to_protocol(
         ),
         session_time=next_time.isoformat(),
         next_scheduled_at=next_scheduled.isoformat() if next_scheduled != next_time else None,
+    )
+
+
+async def _maybe_persist_variable(
+    db: AsyncSession,
+    source_node: MessagingNode,
+    edge: MessagingNodeEdge,
+    participant_id: int,
+    response_value: str,
+) -> None:
+    """Save participant's response as a variable value if the node collects one.
+
+    The node graph can associate a variable with a node via exec_commands
+    containing 'SET variable_name' or via the node's extra_data having a
+    'variable_id' key. Edges may also reference variables through their
+    condition expressions.
+    """
+    variable_id: int | None = None
+
+    # Check node extra_data for an explicit variable_id
+    if source_node.extra_data and source_node.extra_data.get("variable_id"):
+        variable_id = int(source_node.extra_data["variable_id"])
+
+    # Check exec_commands for SET directives (format: "SET <variable_id>")
+    if not variable_id and source_node.exec_commands:
+        for cmd in source_node.exec_commands.split(";"):
+            cmd = cmd.strip()
+            if cmd.upper().startswith("SET "):
+                try:
+                    variable_id = int(cmd.split()[1])
+                except (IndexError, ValueError):
+                    pass
+                break
+
+    if not variable_id:
+        return
+
+    # Upsert: update existing or create new
+    from sqlalchemy import and_
+    result = await db.execute(
+        select(ParticipantVariableValue).where(
+            and_(
+                ParticipantVariableValue.participant_id == participant_id,
+                ParticipantVariableValue.variable_id == variable_id,
+            )
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        existing.variable_value = response_value
+    else:
+        db.add(ParticipantVariableValue(
+            participant_id=participant_id,
+            variable_id=variable_id,
+            variable_value=response_value,
+        ))
+    await db.flush()
+    logger.info(
+        "Saved variable %d = %r for participant %d",
+        variable_id, response_value, participant_id,
     )
 
 
@@ -454,9 +592,9 @@ async def get_session_status(
 
     Example:
         GET /v1/protocol/session/{session_id}
-        Headers: X-API-Key: iquit0-test-key-12345
+        Headers: X-API-Key: YOUR_PROTOCOL_API_KEY
     """
-    session = SESSIONS.get(session_id)
+    session = await get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -467,6 +605,8 @@ async def get_session_status(
         "language": session["language"],
         "current_time": session["current_time"],
         "created_at": session["created_at"],
+        "participant_id": session.get("participant_id"),
+        "participant_uuid": session.get("participant_uuid"),
     }
 
 
@@ -480,10 +620,124 @@ async def end_session(
 
     Example:
         DELETE /v1/protocol/session/{session_id}
-        Headers: X-API-Key: iquit0-test-key-12345
+        Headers: X-API-Key: YOUR_PROTOCOL_API_KEY
     """
-    if session_id in SESSIONS:
-        del SESSIONS[session_id]
+    deleted = await delete_session(session_id)
+    if deleted:
         return {"status": "deleted", "session_id": session_id}
 
     raise HTTPException(status_code=404, detail="Session not found")
+
+
+@router.post("/protocol/resume", response_model=ProtocolSessionResponse)
+async def resume_protocol_session(
+    request: ProtocolResumeRequest,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+) -> ProtocolSessionResponse:
+    """Resume a protocol session for a participant.
+
+    Looks up the participant by UUID, checks for an existing Redis session,
+    and if expired, recreates the session from the participant's stored state.
+
+    Example:
+        POST /v1/protocol/resume
+        Headers: X-API-Key: YOUR_PROTOCOL_API_KEY
+        Body: {"participant_uuid": "abc-123"}
+    """
+    # Find participant
+    result = await db.execute(
+        select(Participant).where(Participant.uu_id == request.participant_uuid)
+    )
+    participant = result.scalar_one_or_none()
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found")
+
+    extra = participant.extra_data or {}
+    current_node_id = extra.get("current_node_id")
+    existing_session_id = extra.get("session_id")
+
+    # Try to reuse existing Redis session
+    if existing_session_id:
+        session = await get_session(existing_session_id)
+        if session:
+            # Session still alive — return current state
+            ctx = await _get_protocol_context(session["project_id"], db)
+            node = ctx["nodes_map"].get(session["current_node_id"])
+            if node:
+                msg_text, media_url, qr, expects_reply = _get_message_content(
+                    node, session["language"], ctx["templates_map"], ctx["adjacency"]
+                )
+                return ProtocolSessionResponse(
+                    session_id=existing_session_id,
+                    project_id=session["project_id"],
+                    project_name=ctx["project"].name,
+                    current_node_id=node.id,
+                    current_node_name=node.name,
+                    participant_uuid=participant.uu_id,
+                    message=ProtocolMessage(
+                        message_text=msg_text,
+                        media_url=media_url,
+                        quick_replies=qr,
+                        expects_reply=expects_reply,
+                        is_terminal=node.is_terminal_node,
+                    ),
+                    session_time=session["current_time"],
+                )
+
+    # No active session — recreate from participant's stored state
+    if not current_node_id:
+        raise HTTPException(
+            status_code=404,
+            detail="No active or recoverable session for this participant",
+        )
+
+    ctx = await _get_protocol_context(participant.project_id, db)
+    node = ctx["nodes_map"].get(current_node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Stored node no longer exists in protocol")
+
+    # Determine language
+    language = request.language or ("es" if participant.current_language_id == 2 else "en")
+
+    # Create a fresh Redis session
+    session_id = str(uuid4())
+    current_time = datetime.now(timezone.utc)
+
+    session_data: dict[str, Any] = {
+        "project_id": participant.project_id,
+        "language": language,
+        "current_node_id": node.id,
+        "current_time": current_time.isoformat(),
+        "created_at": current_time.isoformat(),
+        "participant_id": participant.id,
+        "participant_uuid": participant.uu_id,
+        "resumed": True,
+    }
+    await save_session(session_id, session_data)
+
+    # Update participant with new session_id
+    extra["session_id"] = session_id
+    participant.extra_data = extra
+    await db.flush()
+
+    msg_text, media_url, qr, expects_reply = _get_message_content(
+        node, language, ctx["templates_map"], ctx["adjacency"]
+    )
+
+    return ProtocolSessionResponse(
+        session_id=session_id,
+        project_id=participant.project_id,
+        project_name=ctx["project"].name,
+        current_node_id=node.id,
+        current_node_name=node.name,
+        participant_uuid=participant.uu_id,
+        message=ProtocolMessage(
+            message_text=msg_text,
+            media_url=media_url,
+            quick_replies=qr,
+            expects_reply=expects_reply,
+            is_terminal=node.is_terminal_node,
+        ),
+        session_time=current_time.isoformat(),
+    )

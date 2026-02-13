@@ -3,10 +3,12 @@
 from datetime import datetime, timezone
 import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.rate_limit import limiter
 
 from app.config import settings
 from app.database.session import get_db
@@ -46,6 +48,9 @@ class LoginResponse(BaseModel):
     """Login response schema."""
     message: str
     user: UserResponse
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_type: str = "bearer"
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -83,7 +88,9 @@ def _clear_auth_cookies(response: Response) -> None:
 
 
 @router.post("/login", response_model=LoginResponse)
+@limiter.limit("10/minute")
 async def login(
+    request: Request,
     data: LoginRequest,
     response: Response,
     db: AsyncSession = Depends(get_db),
@@ -133,10 +140,10 @@ async def login(
     )
     db.add(db_token)
 
-    # Set cookies
+    # Set cookies (for web dashboard)
     _set_auth_cookies(response, access_token, refresh_token)
 
-    # Return user info
+    # Return user info + tokens in body (for mobile / API clients)
     return LoginResponse(
         message="Login successful",
         user=UserResponse(
@@ -145,31 +152,178 @@ async def login(
             full_name=user.full_name,
             role=user.role.value,
         ),
+        access_token=access_token,
+        refresh_token=refresh_token,
     )
 
 
 @router.post("/refresh", status_code=status.HTTP_204_NO_CONTENT)
 async def refresh(
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Refresh access token using refresh token cookie.
 
+    Reads the ezmsg_refresh cookie, validates the refresh token,
+    and issues a new access + refresh token pair.
+
     Args:
-        response: FastAPI response for cookie setting
+        request: FastAPI request (for reading cookies)
+        response: FastAPI response (for setting cookies)
         db: Database session
 
     Raises:
         HTTPException: If refresh token is invalid or expired
     """
-    from fastapi import Request
-    from starlette.requests import Request as StarletteRequest
+    refresh_token = request.cookies.get("ezmsg_refresh")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No refresh token provided",
+        )
 
-    # Get refresh token from cookie (this is a workaround)
-    # In practice, you'd inject Request as a dependency
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Refresh endpoint needs Request injection",
+    # Decode and validate the refresh token
+    try:
+        payload = decode_token(refresh_token)
+    except Exception:
+        _clear_auth_cookies(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    # Verify refresh token hash exists in DB
+    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.user_id == int(user_id),
+        )
+    )
+    db_token = result.scalar_one_or_none()
+    if not db_token:
+        _clear_auth_cookies(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked",
+        )
+
+    # Verify user still exists and is active
+    user = await db.get(User, int(user_id))
+    if not user or not user.is_active:
+        _clear_auth_cookies(response)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or disabled",
+        )
+
+    # Revoke old refresh token
+    await db.delete(db_token)
+
+    # Issue new token pair
+    new_access = create_access_token(data={"sub": str(user.id)})
+    new_refresh = create_refresh_token(data={"sub": str(user.id)})
+
+    # Store new refresh token hash
+    new_hash = hashlib.sha256(new_refresh.encode()).hexdigest()
+    new_payload = decode_token(new_refresh)
+    new_expires = datetime.fromtimestamp(new_payload["exp"], tz=timezone.utc)
+    db.add(RefreshToken(user_id=user.id, token_hash=new_hash, expires_at=new_expires))
+
+    _set_auth_cookies(response, new_access, new_refresh)
+
+
+class RefreshRequest(BaseModel):
+    """Refresh request for mobile clients (sends token in body)."""
+    refresh_token: str
+
+
+class RefreshResponse(BaseModel):
+    """Refresh response with new token pair."""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+@router.post("/refresh/token", response_model=RefreshResponse)
+async def refresh_with_token(
+    data: RefreshRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> RefreshResponse:
+    """Refresh tokens using a refresh token from the request body.
+
+    This endpoint is for mobile/API clients that don't use cookies.
+    Web clients should use POST /refresh which reads from cookies.
+    """
+    try:
+        payload = decode_token(data.refresh_token)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    # Verify refresh token hash exists in DB
+    token_hash = hashlib.sha256(data.refresh_token.encode()).hexdigest()
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.user_id == int(user_id),
+        )
+    )
+    db_token = result.scalar_one_or_none()
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token has been revoked",
+        )
+
+    # Verify user still exists and is active
+    user = await db.get(User, int(user_id))
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or disabled",
+        )
+
+    # Revoke old refresh token
+    await db.delete(db_token)
+
+    # Issue new token pair
+    new_access = create_access_token(data={"sub": str(user.id)})
+    new_refresh = create_refresh_token(data={"sub": str(user.id)})
+
+    # Store new refresh token hash
+    new_hash = hashlib.sha256(new_refresh.encode()).hexdigest()
+    new_payload = decode_token(new_refresh)
+    new_expires = datetime.fromtimestamp(new_payload["exp"], tz=timezone.utc)
+    db.add(RefreshToken(user_id=user.id, token_hash=new_hash, expires_at=new_expires))
+
+    return RefreshResponse(
+        access_token=new_access,
+        refresh_token=new_refresh,
     )
 
 
@@ -204,7 +358,9 @@ async def get_current_user_info(
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/minute")
 async def register(
+    request: Request,
     data: RegisterRequest,
     db: AsyncSession = Depends(get_db),
 ) -> UserResponse:

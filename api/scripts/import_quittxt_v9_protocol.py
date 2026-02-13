@@ -18,9 +18,10 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+import os
 
-# Database URL
-DATABASE_URL = "postgresql+asyncpg://ezmsg:ezmsg_dev@localhost:5433/ezmsg"
+# Database URL - use environment variable or default to local
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://ezmsg:ezmsg_dev@localhost:5433/ezmsg")
 
 # Project config
 PROJECT_NAME = "QuitTxt V9 UTSA Study"
@@ -1439,15 +1440,22 @@ async def main():
                 print("ERROR: Admin user not found! Make sure to run database seed first.")
                 return
 
-            # Get language IDs
+            # Get or create language IDs
             result = await session.execute(select(AvailableLanguage).where(AvailableLanguage.short_name == "en"))
             en_lang = result.scalar_one_or_none()
+            if not en_lang:
+                en_lang = AvailableLanguage(name="English", short_name="en", code=1)
+                session.add(en_lang)
+                await session.flush()
+                print(f"Created English language (ID: {en_lang.id})")
+
             result = await session.execute(select(AvailableLanguage).where(AvailableLanguage.short_name == "es"))
             es_lang = result.scalar_one_or_none()
-
-            if not en_lang or not es_lang:
-                print("ERROR: Languages not found! Make sure EN and ES languages exist.")
-                return
+            if not es_lang:
+                es_lang = AvailableLanguage(name="Spanish", short_name="es", code=2)
+                session.add(es_lang)
+                await session.flush()
+                print(f"Created Spanish language (ID: {es_lang.id})")
 
             print(f"\nAdmin user: {admin.email} (ID: {admin.id})")
             print(f"Languages: EN={en_lang.id}, ES={es_lang.id}")

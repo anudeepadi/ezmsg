@@ -1,5 +1,6 @@
 """Webhooks router for inbound message handling."""
 
+import logging
 from typing import Optional
 from datetime import datetime, timezone
 
@@ -8,12 +9,42 @@ from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database.session import get_db
+from app.rate_limit import limiter
 from app.models.participant import Participant, ParticipantStatus
 from app.models.incoming_message import IncomingMessage
 from app.models.participant import MessagingChannelType
 from app.models.scheduled_message import ScheduledMessage, ScheduledMessageStatus
 from app.models.keyword import SmsKeyword
+
+logger = logging.getLogger(__name__)
+
+
+def _verify_twilio_signature(request: Request, form_data: dict) -> bool:
+    """Verify Twilio request signature if auth token is configured.
+
+    Returns True if verification passes or is not configured.
+    """
+    if not settings.twilio_auth_token:
+        return True  # Skip verification in dev
+
+    signature = request.headers.get("X-Twilio-Signature", "")
+    if not signature:
+        logger.warning("Missing X-Twilio-Signature header")
+        return False
+
+    try:
+        from twilio.request_validator import RequestValidator
+        validator = RequestValidator(settings.twilio_auth_token)
+        url = str(request.url)
+        return validator.validate(url, form_data, signature)
+    except ImportError:
+        logger.warning("twilio package not installed, skipping signature verification")
+        return True
+    except Exception as e:
+        logger.error("Twilio signature verification error: %s", e)
+        return False
 
 router = APIRouter()
 
@@ -33,20 +64,18 @@ class FcmTokenRefresh(BaseModel):
 
 
 @router.post("/twilio/sms")
+@limiter.limit("60/minute")
 async def twilio_sms_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> str:
-    """Handle inbound SMS from Twilio.
-
-    Args:
-        request: FastAPI request
-        db: Database session
-
-    Returns:
-        TwiML response
-    """
+    """Handle inbound SMS from Twilio."""
     form_data = await request.form()
+    form_dict = dict(form_data)
+
+    # Verify Twilio signature in production
+    if settings.is_production and not _verify_twilio_signature(request, form_dict):
+        raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     from_number = form_data.get("From", "")
     to_number = form_data.get("To", "")
@@ -84,20 +113,19 @@ async def twilio_sms_webhook(
 
 
 @router.post("/twilio/status")
+@limiter.limit("120/minute")
 async def twilio_status_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Handle Twilio delivery status callbacks.
-
-    Args:
-        request: FastAPI request
-        db: Database session
-
-    Returns:
-        Acknowledgment
-    """
+    """Handle Twilio delivery status callbacks."""
     form_data = await request.form()
+
+    # Verify Twilio signature in production
+    if settings.is_production:
+        form_dict = dict(form_data)
+        if not _verify_twilio_signature(request, form_dict):
+            raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     message_sid = form_data.get("MessageSid", "")
     status = form_data.get("MessageStatus", "")
@@ -125,19 +153,13 @@ async def twilio_status_webhook(
 
 
 @router.post("/fcm/token")
+@limiter.limit("30/minute")
 async def fcm_token_refresh(
+    request: Request,
     data: FcmTokenRefresh,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Handle FCM token refresh from mobile app.
-
-    Args:
-        data: Token refresh data
-        db: Database session
-
-    Returns:
-        Acknowledgment
-    """
+    """Handle FCM token refresh from mobile app."""
     result = await db.execute(
         select(Participant).where(
             Participant.uu_id == data.participant_uuid,
@@ -156,19 +178,13 @@ async def fcm_token_refresh(
 
 
 @router.post("/app/reply")
+@limiter.limit("60/minute")
 async def app_reply_webhook(
+    request: Request,
     data: AppReplyRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Handle quick reply from mobile app.
-
-    Args:
-        data: Reply data
-        db: Database session
-
-    Returns:
-        Response with any triggered actions
-    """
+    """Handle quick reply from mobile app."""
     # Find participant
     result = await db.execute(
         select(Participant).where(
@@ -255,8 +271,28 @@ async def _process_keywords(
         return {"matched": True, "action": "opt_out"}
 
     elif action == "HELP" or text in ("HELP", "HELPNOW", "INFO"):
-        # Could trigger help response
-        return {"matched": True, "action": "help_requested"}
+        # HELPNOW rotating message pool support
+        response_template_id = keyword.response_template_id
+        if keyword.message_pool and isinstance(keyword.message_pool, list) and keyword.message_pool:
+            # Rotate through the pool using a counter in participant extra_data
+            pool = keyword.message_pool
+            pool_key = f"helpnow_{keyword.keyword_name.lower()}_index"
+            extra = dict(participant.extra_data or {})
+            idx = extra.get(pool_key, 0) % len(pool)
+            response_template_id = pool[idx]
+            extra[pool_key] = idx + 1
+            participant.extra_data = extra
+            await db.flush()
+            logger.info(
+                "HELPNOW pool %s: template_id=%d (index %d/%d) for participant %d",
+                keyword.keyword_name, response_template_id, idx, len(pool), participant.id,
+            )
+
+        return {
+            "matched": True,
+            "action": "help_requested",
+            "response_template_id": response_template_id,
+        }
 
     elif action == "PAUSE":
         participant.status = ParticipantStatus.SUSPENDED

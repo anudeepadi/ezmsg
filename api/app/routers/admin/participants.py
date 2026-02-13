@@ -1,9 +1,14 @@
 """Participants admin router."""
 
+import csv
+import io
+import logging
 from typing import List, Optional
 from datetime import datetime, timezone
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +21,8 @@ from app.models.scheduled_message import ScheduledMessage
 from app.models.project import Project
 from app.models.user import User
 from app.security.deps import get_current_active_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -538,3 +545,131 @@ async def get_participant_messages(
         )
         for m in messages
     ]
+
+
+# ── Bulk Import/Export ────────────────────────────────────────────────────
+
+
+class BulkImportResult(BaseModel):
+    """Result of CSV bulk import."""
+    created: int = 0
+    skipped: int = 0
+    errors: list[str] = []
+
+
+@router.post("/project/{project_id}/import", response_model=BulkImportResult)
+async def bulk_import_participants(
+    project_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> BulkImportResult:
+    """Bulk import participants from a CSV file.
+
+    CSV columns: external_id, phone_number, channel_type, language_id,
+    is_test_participant, timezone
+
+    Only external_id is required. Other columns have defaults.
+    """
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    content = await file.read()
+    text = content.decode("utf-8-sig")  # Handle BOM
+    reader = csv.DictReader(io.StringIO(text))
+
+    result = BulkImportResult()
+
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            external_id = row.get("external_id", "").strip()
+            if not external_id:
+                result.errors.append(f"Row {row_num}: missing external_id")
+                continue
+
+            # Check for existing
+            existing = (await db.execute(
+                select(Participant).where(
+                    Participant.project_id == project_id,
+                    Participant.external_id == external_id,
+                )
+            )).scalar_one_or_none()
+            if existing:
+                result.skipped += 1
+                continue
+
+            channel = row.get("channel_type", "MOBILE_APP").strip().upper()
+            if channel not in [e.value for e in MessagingChannelType]:
+                channel = "MOBILE_APP"
+
+            participant = Participant(
+                uu_id=str(uuid4()),
+                project_id=project_id,
+                external_id=external_id,
+                phone_number=row.get("phone_number", "").strip() or None,
+                channel_type=MessagingChannelType(channel),
+                current_language_id=int(row.get("language_id", "1").strip() or "1"),
+                is_test_participant=row.get("is_test_participant", "").strip().lower() in ("true", "1", "yes"),
+                timezone=row.get("timezone", "").strip() or "America/Chicago",
+                status=ParticipantStatus.ACTIVE,
+                enrolled_at=datetime.now(timezone.utc),
+            )
+            db.add(participant)
+            result.created += 1
+
+        except Exception as e:
+            result.errors.append(f"Row {row_num}: {str(e)}")
+
+    await db.flush()
+    logger.info(
+        "Bulk import for project %d: %d created, %d skipped, %d errors",
+        project_id, result.created, result.skipped, len(result.errors),
+    )
+    return result
+
+
+@router.get("/project/{project_id}/export")
+async def export_participants(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> StreamingResponse:
+    """Export all participants for a project as CSV."""
+    project = (await db.execute(
+        select(Project).where(Project.id == project_id)
+    )).scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    participants = (await db.execute(
+        select(Participant).where(Participant.project_id == project_id)
+    )).scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "id", "uu_id", "external_id", "phone_number", "channel_type",
+        "status", "language_id", "timezone", "is_test_participant",
+        "enrolled_at", "completed_at", "created_at",
+    ])
+    for p in participants:
+        writer.writerow([
+            p.id, p.uu_id, p.external_id, p.phone_number,
+            p.channel_type.value, p.status.value, p.current_language_id,
+            p.timezone, p.is_test_participant,
+            p.enrolled_at.isoformat() if p.enrolled_at else "",
+            p.completed_at.isoformat() if p.completed_at else "",
+            p.created_at.isoformat() if p.created_at else "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=participants_project_{project_id}.csv",
+        },
+    )

@@ -1,0 +1,179 @@
+# ============================================================================
+# EzMsg — Cloud Build pipeline
+# ============================================================================
+# Builds Docker images for api, worker, and web, pushes them to Artifact
+# Registry, then deploys each to Cloud Run.
+#
+# Trigger: push to main branch
+#   gcloud builds triggers create github \
+#     --repo-name=ezmsg --repo-owner=YOUR_ORG \
+#     --branch-pattern='^main$' \
+#     --build-config=infra/cloudbuild.yaml
+#
+# Manual run:
+#   gcloud builds submit --config=infra/cloudbuild.yaml
+# ============================================================================
+
+substitutions:
+  _REGION: us-central1
+  _AR_REPO: ezmsg
+  _SQL_INSTANCE: ezmsg-db
+  _API_SERVICE: ezmsg-api
+  _WORKER_SERVICE: ezmsg-worker
+  _WEB_SERVICE: ezmsg-web
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_MEDIUM
+
+# ---------------------------------------------------------------------------
+# Steps
+# ---------------------------------------------------------------------------
+steps:
+
+  # ── 1. Build API image ──────────────────────────────────────────────────
+  - id: build-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/api:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/api:latest
+      - -f
+      - api/Dockerfile
+      - api/
+
+  # ── 2. Build Worker image ───────────────────────────────────────────────
+  - id: build-worker
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/worker:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/worker:latest
+      - -f
+      - worker/Dockerfile
+      - worker/
+
+  # ── 3. Build Web image ─────────────────────────────────────────────────
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:${SHORT_SHA}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:latest
+      - --build-arg
+      - API_URL=https://${_API_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app/v1
+      - -f
+      - web/Dockerfile
+      - web/
+
+  # ── 4. Push API image ──────────────────────────────────────────────────
+  - id: push-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/api
+    waitFor:
+      - build-api
+
+  # ── 5. Push Worker image ────────────────────────────────────────────────
+  - id: push-worker
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/worker
+    waitFor:
+      - build-worker
+
+  # ── 6. Push Web image ──────────────────────────────────────────────────
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web
+    waitFor:
+      - build-web
+
+  # ── 7. Deploy API to Cloud Run ─────────────────────────────────────────
+  - id: deploy-api
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - services
+      - replace
+      - infra/api-service.yaml
+      - --region=${_REGION}
+    waitFor:
+      - push-api
+
+  # ── 8. Deploy Worker to Cloud Run ──────────────────────────────────────
+  - id: deploy-worker
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - services
+      - replace
+      - infra/worker-service.yaml
+      - --region=${_REGION}
+    waitFor:
+      - push-worker
+
+  # ── 9. Deploy Web to Cloud Run ─────────────────────────────────────────
+  - id: deploy-web
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - services
+      - replace
+      - infra/web-service.yaml
+      - --region=${_REGION}
+    waitFor:
+      - push-web
+
+  # ── 10. Allow unauthenticated access to API and Web ────────────────────
+  - id: allow-public-api
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - services
+      - add-iam-policy-binding
+      - ${_API_SERVICE}
+      - --region=${_REGION}
+      - --member=allUsers
+      - --role=roles/run.invoker
+    waitFor:
+      - deploy-api
+
+  - id: allow-public-web
+    name: gcr.io/cloud-builders/gcloud
+    args:
+      - run
+      - services
+      - add-iam-policy-binding
+      - ${_WEB_SERVICE}
+      - --region=${_REGION}
+      - --member=allUsers
+      - --role=roles/run.invoker
+    waitFor:
+      - deploy-web
+
+# ---------------------------------------------------------------------------
+# Images to push (for build provenance / audit)
+# ---------------------------------------------------------------------------
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/api:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/api:latest
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/worker:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/worker:latest
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:${SHORT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/web:latest
+
+timeout: 1800s

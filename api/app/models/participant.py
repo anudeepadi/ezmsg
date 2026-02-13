@@ -65,6 +65,7 @@ class Participant(Base, TimestampMixin):
     is_test_participant: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     participant_info: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     fcm_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    timezone: Mapped[str] = mapped_column(String(50), default="America/Chicago", nullable=False)
     enrolled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     extra_data: Mapped[dict] = mapped_column("metadata", JSON, default=dict, nullable=False)

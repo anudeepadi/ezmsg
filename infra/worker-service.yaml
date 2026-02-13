@@ -1,0 +1,88 @@
+# ============================================================================
+# EzMsg Worker — Cloud Run service definition
+# ============================================================================
+# The worker is a background process (no HTTP port). It polls the database
+# for pending messages and dispatches them via Twilio/FCM.
+#
+# Deploy:  gcloud run services replace infra/worker-service.yaml --region=us-central1
+# ============================================================================
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ezmsg-worker
+  labels:
+    app: ezmsg
+    component: worker
+  annotations:
+    run.googleapis.com/ingress: internal
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        # Always-on: min 1 instance so the worker never stops polling
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "1"
+        # Cloud SQL connection
+        run.googleapis.com/cloudsql-instances: "PROJECT_ID:us-central1:ezmsg-db"
+        # CPU is always allocated (not just during requests) — required for
+        # background workers that don't serve HTTP traffic.
+        run.googleapis.com/cpu-throttling: "false"
+    spec:
+      containerConcurrency: 1
+      timeoutSeconds: 3600
+      serviceAccountName: ""   # Uses default Compute Engine SA
+      containers:
+        - image: us-central1-docker.pkg.dev/PROJECT_ID/ezmsg/worker:latest
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "0.5"
+          env:
+            # ── Plain environment variables ─────────────────────────────
+            # Worker uses EZMSG_ prefix for all env vars
+            - name: EZMSG_SIMULATION_MODE
+              value: "false"
+            - name: EZMSG_POLL_INTERVAL_SECONDS
+              value: "5"
+            - name: EZMSG_BATCH_SIZE
+              value: "50"
+            - name: EZMSG_MAX_RETRIES
+              value: "8"
+
+            # ── Secrets from Secret Manager (EZMSG_ prefix) ────────────
+            - name: EZMSG_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: DATABASE_URL
+            - name: EZMSG_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: REDIS_URL
+            - name: EZMSG_TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: TWILIO_ACCOUNT_SID
+            - name: EZMSG_TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: TWILIO_AUTH_TOKEN
+            - name: EZMSG_TWILIO_PHONE_NUMBER
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: TWILIO_PHONE_NUMBER
+            - name: EZMSG_FIREBASE_CREDENTIALS_JSON
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: FIREBASE_CREDENTIALS_JSON
+            - name: EZMSG_SENTRY_DSN
+              valueFrom:
+                secretKeyRef:
+                  key: latest
+                  name: SENTRY_DSN

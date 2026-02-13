@@ -41,3 +41,7 @@ htmlcov/
 # Misc
 *.bak
 *.tmp
+
+# Local tooling / artifacts
+.claude/
+tmp/

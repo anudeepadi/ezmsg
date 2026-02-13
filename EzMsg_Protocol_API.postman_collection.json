@@ -1,0 +1,349 @@
+{
+  "info": {
+    "name": "EzMsg Protocol API",
+    "description": "Complete API testing collection for EzMsg Protocol - QuitTxt V9 UTSA Study",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Start Protocol Session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Save session_id for next requests",
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.collectionVariables.set(\"session_id\", response.session_id);",
+              "    console.log(\"Session ID saved:\", response.session_id);",
+              "",
+              "    // Display the message",
+              "    console.log(\"\\n📱 MESSAGE TO USER:\");",
+              "    console.log(response.message.message_text);",
+              "",
+              "    if (response.message.quick_replies) {",
+              "        console.log(\"\\n⚡ QUICK REPLIES:\");",
+              "        response.message.quick_replies.forEach(qr => {",
+              "            console.log(`  [${qr.value}] ${qr.label}`);",
+              "        });",
+              "    }",
+              "",
+              "    console.log(\"\\n📊 SESSION INFO:\");",
+              "    console.log(\"  Node:\", response.current_node_name);",
+              "    console.log(\"  Expects Reply:\", response.message.expects_reply);",
+              "    console.log(\"  Is Terminal:\", response.message.is_terminal);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": {{project_id}},\n  \"language\": \"en\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/protocol/start",
+          "host": ["{{base_url}}"],
+          "path": ["protocol", "start"]
+        },
+        "description": "Start a new protocol session. Returns the first message and saves session_id automatically."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Send User Response",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "",
+              "    console.log(\"\\n\" + \"=\".repeat(80));",
+              "    console.log(\"NODE:\", response.current_node_name);",
+              "    console.log(\"=\".repeat(80));",
+              "",
+              "    console.log(\"\\n📱 MESSAGE TO USER:\");",
+              "    console.log(response.message.message_text);",
+              "",
+              "    if (response.message.media_url) {",
+              "        console.log(\"\\n🎬 MEDIA:\", response.message.media_url);",
+              "    }",
+              "",
+              "    if (response.message.quick_replies) {",
+              "        console.log(\"\\n⚡ QUICK REPLIES:\");",
+              "        response.message.quick_replies.forEach(qr => {",
+              "            console.log(`  [${qr.value}] ${qr.label}`);",
+              "        });",
+              "    }",
+              "",
+              "    console.log(\"\\n📊 SESSION INFO:\");",
+              "    console.log(\"  Expects Reply:\", response.message.expects_reply);",
+              "    console.log(\"  Is Terminal:\", response.message.is_terminal);",
+              "    console.log(\"  Next Scheduled:\", response.next_scheduled_at || \"None\");",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session_id\": \"{{session_id}}\",\n  \"response\": \"1\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/protocol/respond",
+          "host": ["{{base_url}}"],
+          "path": ["protocol", "respond"]
+        },
+        "description": "Send a user response to continue the protocol. Update the 'response' value based on quick_replies from previous message."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get Session Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "",
+              "    console.log(\"\\n📊 SESSION STATUS:\");",
+              "    console.log(\"  Session ID:\", response.session_id);",
+              "    console.log(\"  Project ID:\", response.project_id);",
+              "    console.log(\"  Current Node:\", response.current_node_id);",
+              "    console.log(\"  Language:\", response.language);",
+              "    console.log(\"  Created:\", response.created_at);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/protocol/session/{{session_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["protocol", "session", "{{session_id}}"]
+        },
+        "description": "Get current session status without advancing the protocol. Useful for resuming sessions."
+      },
+      "response": []
+    },
+    {
+      "name": "4. End Session (DELETE)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    console.log(\"\\n✅ Session deleted:\", response.session_id);",
+              "    console.log(\"Message:\", response.message);",
+              "",
+              "    // Clear session_id",
+              "    pm.collectionVariables.set(\"session_id\", \"\");",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/protocol/session/{{session_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["protocol", "session", "{{session_id}}"]
+        },
+        "description": "End and delete the current session. Clears session_id from collection variables."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Start with 'iquit0' Shortcut",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Save session_id for next requests",
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.collectionVariables.set(\"session_id\", response.session_id);",
+              "    console.log(\"Session ID saved:\", response.session_id);",
+              "",
+              "    console.log(\"\\n📱 MESSAGE TO USER:\");",
+              "    console.log(response.message.message_text);",
+              "",
+              "    if (response.message.quick_replies) {",
+              "        console.log(\"\\n⚡ QUICK REPLIES:\");",
+              "        response.message.quick_replies.forEach(qr => {",
+              "            console.log(`  [${qr.value}] ${qr.label}`);",
+              "        });",
+              "    }",
+              "",
+              "    console.log(\"\\n💡 This is the immediate quit shortcut - skips intake!\");",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": {{project_id}},\n  \"language\": \"en\",\n  \"initial_response\": \"iquit0\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/protocol/start",
+          "host": ["{{base_url}}"],
+          "path": ["protocol", "start"]
+        },
+        "description": "Start with 'iquit0' shortcut to skip intake and go directly to quit day support."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Start Spanish Language Session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Save session_id for next requests",
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.collectionVariables.set(\"session_id\", response.session_id);",
+              "    console.log(\"Session ID saved:\", response.session_id);",
+              "",
+              "    console.log(\"\\n📱 MENSAJE AL USUARIO:\");",
+              "    console.log(response.message.message_text);",
+              "",
+              "    if (response.message.quick_replies) {",
+              "        console.log(\"\\n⚡ RESPUESTAS RÁPIDAS:\");",
+              "        response.message.quick_replies.forEach(qr => {",
+              "            console.log(`  [${qr.value}] ${qr.label}`);",
+              "        });",
+              "    }",
+              "",
+              "    console.log(\"\\n💡 All messages are now in Spanish!\");",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{api_key}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": {{project_id}},\n  \"language\": \"es\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/protocol/start",
+          "host": ["{{base_url}}"],
+          "path": ["protocol", "start"]
+        },
+        "description": "Start a Spanish language session. All messages will be in Spanish."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/v1",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "YOUR_PROTOCOL_API_KEY",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

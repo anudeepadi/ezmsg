@@ -5,6 +5,7 @@ It's safe to run multiple times - it will only create missing tables.
 """
 
 import asyncio
+import os
 from sqlalchemy import inspect, text
 
 from app.database.engine import engine
@@ -32,20 +33,26 @@ async def init_db() -> None:
         enum_exists = result.scalar()
         print(f"Enum type 'user_role' exists: {enum_exists}")
 
-        # If enum doesn't exist but tables do, we need to recreate everything
-        if not enum_exists and existing_tables:
-            print("Enum type missing but tables exist - dropping all tables...")
-            await conn.run_sync(Base.metadata.drop_all)
-            existing_tables = []
+        reset_db = os.getenv("EZMSG_RESET_DB", "false").strip().lower() in {"1", "true", "yes"}
 
-        # Create enum type
-        print("Creating enum types...")
-        await conn.execute(
-            text("""
-                DROP TYPE IF EXISTS user_role CASCADE;
-                CREATE TYPE user_role AS ENUM ('admin', 'researcher', 'operator');
-            """)
-        )
+        if reset_db and existing_tables:
+            print("EZMSG_RESET_DB=true: dropping all tables (CASCADE) for a clean initialization...")
+            for table in existing_tables:
+                try:
+                    await conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+                except Exception as e:
+                    print(f"Warning: Could not drop table {table}: {e}")
+
+            print("Dropping enum type user_role (CASCADE)...")
+            await conn.execute(text("DROP TYPE IF EXISTS user_role CASCADE"))
+            enum_exists = False
+
+        # Ensure enum type exists (models use create_type=False)
+        if not enum_exists:
+            print("Creating enum type user_role...")
+            await conn.execute(
+                text("CREATE TYPE user_role AS ENUM ('admin', 'researcher', 'operator')")
+            )
 
         # Create all tables defined in models
         print("Creating all tables...")
