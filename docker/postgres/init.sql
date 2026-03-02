@@ -407,7 +407,7 @@ CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 -- Seed initial admin user (password: admin123 - CHANGE IN PRODUCTION!)
 -- bcrypt hash of 'admin123'
 INSERT INTO users (email, password_hash, full_name, role)
-VALUES ('admin@example.com', '$2b$12$xDTlJeREQTX/c63YnlAI.erQjuIf77CpIau2w9/O01/aTcBvpQx3e', 'Admin User', 'ADMIN');
+VALUES ('admin@example.com', '$2b$12$xDTlJeREQTX/c63YnlAI.erQjuIf77CpIau2w9/O01/aTcBvpQx3e', 'Admin User', 'admin');
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
