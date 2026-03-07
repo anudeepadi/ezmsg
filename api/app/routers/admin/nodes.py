@@ -347,7 +347,19 @@ async def delete_node(
     if user.role.value != "admin" and node.project.user_id != user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    node.removed_at = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    node.removed_at = now
+
+    # Cascade soft-delete to all connected edges
+    edge_result = await db.execute(
+        select(MessagingNodeEdge).where(
+            MessagingNodeEdge.removed_at.is_(None),
+            (MessagingNodeEdge.parent_node_id == node_id)
+            | (MessagingNodeEdge.child_node_id == node_id),
+        )
+    )
+    for edge in edge_result.scalars():
+        edge.removed_at = now
 
 
 @router.get("/project/{project_id}/graph", response_model=GraphResponse)
@@ -516,3 +528,139 @@ async def delete_edge(
         raise HTTPException(status_code=403, detail="Access denied")
 
     edge.removed_at = datetime.now(timezone.utc)
+
+
+class GraphValidationIssue(BaseModel):
+    severity: str  # "error" or "warning"
+    message: str
+    node_id: Optional[int] = None
+
+
+class GraphValidationResult(BaseModel):
+    valid: bool
+    issues: List[GraphValidationIssue]
+    node_count: int
+    edge_count: int
+    entry_nodes: int
+    terminal_nodes: int
+
+
+@router.get("/project/{project_id}/validate", response_model=GraphValidationResult)
+async def validate_project_graph(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> GraphValidationResult:
+    """Validate protocol graph integrity for a project.
+
+    Checks: entry/terminal node presence, reachability, orphans, cycles.
+    """
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if user.role.value != "admin" and project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Load nodes and edges
+    node_result = await db.execute(
+        select(MessagingNode)
+        .where(MessagingNode.project_id == project_id, MessagingNode.removed_at.is_(None))
+    )
+    all_nodes = list(node_result.scalars().all())
+
+    edge_result = await db.execute(
+        select(MessagingNodeEdge)
+        .where(MessagingNodeEdge.removed_at.is_(None))
+        .join(MessagingNode, MessagingNodeEdge.parent_node_id == MessagingNode.id)
+        .where(MessagingNode.project_id == project_id)
+    )
+    all_edges = list(edge_result.scalars().all())
+
+    issues: List[GraphValidationIssue] = []
+    node_ids = {n.id for n in all_nodes}
+    entry_nodes = [n for n in all_nodes if n.is_entry_node]
+    terminal_nodes = [n for n in all_nodes if n.is_terminal_node]
+
+    # Check entry nodes
+    if len(entry_nodes) == 0:
+        issues.append(GraphValidationIssue(
+            severity="error", message="No entry node defined. Protocol cannot start."
+        ))
+    elif len(entry_nodes) > 1:
+        issues.append(GraphValidationIssue(
+            severity="warning",
+            message=f"Multiple entry nodes found ({len(entry_nodes)}). Only one is typical.",
+        ))
+
+    # Check terminal nodes
+    if len(terminal_nodes) == 0:
+        issues.append(GraphValidationIssue(
+            severity="error", message="No terminal node defined. Protocol cannot end."
+        ))
+
+    # Build adjacency for reachability
+    children: dict[int, list[int]] = {n.id: [] for n in all_nodes}
+    parents: dict[int, list[int]] = {n.id: [] for n in all_nodes}
+    for edge in all_edges:
+        if edge.parent_node_id in node_ids and edge.child_node_id in node_ids:
+            children[edge.parent_node_id].append(edge.child_node_id)
+            parents[edge.child_node_id].append(edge.parent_node_id)
+
+    # Check for orphan nodes (no incoming edges and not entry)
+    for node in all_nodes:
+        if not node.is_entry_node and len(parents.get(node.id, [])) == 0:
+            issues.append(GraphValidationIssue(
+                severity="warning",
+                message=f"Node '{node.display_name or node.name}' has no incoming edges and is not an entry node.",
+                node_id=node.id,
+            ))
+
+    # Check for dead-end nodes (no outgoing edges and not terminal)
+    for node in all_nodes:
+        if not node.is_terminal_node and len(children.get(node.id, [])) == 0:
+            issues.append(GraphValidationIssue(
+                severity="warning",
+                message=f"Node '{node.display_name or node.name}' has no outgoing edges and is not a terminal node.",
+                node_id=node.id,
+            ))
+
+    # Check nodes without templates
+    for node in all_nodes:
+        if not node.is_terminal_node and node.template_id is None:
+            issues.append(GraphValidationIssue(
+                severity="warning",
+                message=f"Node '{node.display_name or node.name}' has no template assigned.",
+                node_id=node.id,
+            ))
+
+    # Reachability from entry nodes (BFS)
+    if entry_nodes:
+        reachable: set[int] = set()
+        queue = [n.id for n in entry_nodes]
+        while queue:
+            current = queue.pop(0)
+            if current in reachable:
+                continue
+            reachable.add(current)
+            queue.extend(children.get(current, []))
+
+        unreachable = node_ids - reachable
+        for nid in unreachable:
+            node = next(n for n in all_nodes if n.id == nid)
+            issues.append(GraphValidationIssue(
+                severity="error",
+                message=f"Node '{node.display_name or node.name}' is unreachable from any entry node.",
+                node_id=nid,
+            ))
+
+    has_errors = any(i.severity == "error" for i in issues)
+
+    return GraphValidationResult(
+        valid=not has_errors,
+        issues=issues,
+        node_count=len(all_nodes),
+        edge_count=len(all_edges),
+        entry_nodes=len(entry_nodes),
+        terminal_nodes=len(terminal_nodes),
+    )

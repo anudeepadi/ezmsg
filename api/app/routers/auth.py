@@ -15,7 +15,7 @@ from app.database.session import get_db
 from app.models.user import User, RefreshToken, UserRole
 from app.security.jwt import create_access_token, create_refresh_token, decode_token
 from app.security.password import verify_password, hash_password
-from app.security.deps import get_current_active_user
+from app.security.deps import get_current_active_user, get_optional_current_user
 
 router = APIRouter()
 
@@ -363,19 +363,29 @@ async def register(
     request: Request,
     data: RegisterRequest,
     db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ) -> UserResponse:
-    """Register a new user (admin only in production).
+    """Register a new user. Requires admin authentication in production.
 
     Args:
         data: Registration data
         db: Database session
+        current_user: Authenticated user (required in production)
 
     Returns:
         Created user information
 
     Raises:
-        HTTPException: If email already exists
+        HTTPException: If email already exists or user lacks permissions
     """
+    # In production, only admins can register new users
+    if settings.environment == "production":
+        if not current_user or current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only administrators can register new users",
+            )
+
     # Check if email exists
     result = await db.execute(select(User).where(User.email == data.email))
     if result.scalar_one_or_none():

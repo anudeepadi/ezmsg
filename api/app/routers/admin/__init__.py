@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from app.routers.admin import (
     projects, participants, templates, nodes, variables,
-    analytics, testing, protocol_test, protocol_import,
+    analytics, testing, protocol_test, protocol_import, delivery,
 )
 
 router = APIRouter()
@@ -19,3 +19,4 @@ router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 router.include_router(testing.router, prefix="/testing", tags=["Testing"])
 router.include_router(protocol_test.router, prefix="/protocol-test", tags=["Protocol Testing"])
 router.include_router(protocol_import.router, prefix="/protocol", tags=["Protocol Import/Export"])
+router.include_router(delivery.router, prefix="/delivery", tags=["Delivery"])

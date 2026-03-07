@@ -1,0 +1,59 @@
+# EzMsg Production Readiness Design
+# Date: 2026-03-05 | Status: Approved | Target: Full Production
+
+current_state:
+  backend_api: "70% - missing CRUD for templates/variables/nodes, security gaps"
+  frontend: "50% - 15+ missing pages, no error boundaries, no auth middleware"
+  worker: "60% - untested Twilio/FCM, no healthcheck"
+  tests: "0% - no unit, integration, or E2E tests"
+  cicd: "0% - no pipeline"
+
+workstreams:
+  ws1_backend:
+    name: "Backend Completeness & Hardening"
+    tasks:
+      - "Fix missing CRUD (template update/delete, variable update, node delete)"
+      - "Security: lock register, encrypt PII, add DB constraints"
+      - "Protocol engine: graph validation, condition evaluation"
+      - "Worker: healthcheck, real delivery testing, queue cleanup"
+
+  ws2_frontend:
+    name: "Frontend — Build All Missing Pages"
+    tasks:
+      - "15 new pages (project edit, create/edit template/node/participant/variable, settings, users, keywords, import/export)"
+      - "Fix existing pages (error boundaries, modals, loading states, charts, pagination)"
+      - "Auth middleware + refresh token"
+
+  ws3_node_editor:
+    name: "Visual Node Graph Editor"
+    tasks:
+      - "React Flow for drag-and-drop protocol design"
+      - "Node types: Message, Branch, Timing, Terminal, Entry"
+      - "Graph validation, auto-layout, undo/redo"
+
+  ws4_delivery:
+    name: "Message Delivery Integration"
+    tasks:
+      - "Twilio SMS end-to-end"
+      - "FCM push end-to-end"
+      - "Multi-channel orchestration + fallback"
+
+  ws5_testing:
+    name: "Testing & Quality"
+    tasks:
+      - "Backend: pytest unit + integration + protocol flow"
+      - "Frontend: Vitest + Playwright E2E"
+      - "CI/CD: GitHub Actions"
+
+  ws6_infra:
+    name: "Production Infrastructure"
+    tasks:
+      - "Railway deployment finalized"
+      - "Sentry monitoring"
+      - "Security audit"
+
+execution_order:
+  week1: "WS1 + WS2 (first 8 pages)"
+  week2: "WS2 (remaining) + WS3"
+  week3: "WS4 + WS5A"
+  week4: "WS5B + WS5C + WS6"

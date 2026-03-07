@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/lib/store';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/lib/store";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -15,20 +15,46 @@ import {
   Clock,
   Settings,
   LogOut,
-} from 'lucide-react';
+  PlayCircle,
+  MessageCircle,
+  Send,
+} from "lucide-react";
 
 const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Projects', href: '/admin/projects', icon: FolderKanban },
-  { name: 'Scheduler', href: '/admin/scheduler', icon: Clock },
+  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { name: "Projects", href: "/admin/projects", icon: FolderKanban },
+  { name: "Scheduler", href: "/admin/scheduler", icon: Clock },
 ];
 
 const projectNavigation = [
-  { name: 'Participants', href: '/admin/projects/[id]/participants', icon: Users },
-  { name: 'Templates', href: '/admin/projects/[id]/templates', icon: FileText },
-  { name: 'Nodes', href: '/admin/projects/[id]/nodes', icon: GitBranch },
-  { name: 'Variables', href: '/admin/projects/[id]/variables', icon: Variable },
-  { name: 'Analytics', href: '/admin/projects/[id]/analytics', icon: BarChart3 },
+  {
+    name: "Participants",
+    href: "/admin/projects/[id]/participants",
+    icon: Users,
+  },
+  { name: "Templates", href: "/admin/projects/[id]/templates", icon: FileText },
+  { name: "Nodes", href: "/admin/projects/[id]/nodes", icon: GitBranch },
+  { name: "Variables", href: "/admin/projects/[id]/variables", icon: Variable },
+  {
+    name: "Analytics",
+    href: "/admin/projects/[id]/analytics",
+    icon: BarChart3,
+  },
+  {
+    name: "Delivery",
+    href: "/admin/projects/[id]/delivery",
+    icon: Send,
+  },
+  {
+    name: "Test Protocol",
+    href: "/admin/projects/[id]/test-protocol",
+    icon: PlayCircle,
+  },
+  {
+    name: "Simulator",
+    href: "/admin/projects/[id]/simulator",
+    icon: MessageCircle,
+  },
 ];
 
 export function Sidebar() {
@@ -57,17 +83,15 @@ export function Sidebar() {
         {navigation.map((item) => {
           const Icon = item.icon;
           const isActive =
-            item.href === '/admin'
-              ? pathname === '/admin'
+            item.href === "/admin"
+              ? pathname === "/admin"
               : pathname.startsWith(item.href);
 
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={cn(
-                isActive ? 'nav-item-active' : 'nav-item'
-              )}
+              className={cn(isActive ? "nav-item-active" : "nav-item")}
             >
               <Icon className="h-5 w-5" />
               {item.name}
@@ -85,16 +109,15 @@ export function Sidebar() {
             </div>
             {projectNavigation.map((item) => {
               const Icon = item.icon;
-              const href = item.href.replace('[id]', currentProjectId);
-              const isActive = pathname === href;
+              const href = item.href.replace("[id]", currentProjectId);
+              const isActive =
+                pathname === href || pathname.startsWith(href + "/");
 
               return (
                 <Link
                   key={item.name}
                   href={href}
-                  className={cn(
-                    isActive ? 'nav-item-active' : 'nav-item'
-                  )}
+                  className={cn(isActive ? "nav-item-active" : "nav-item")}
                 >
                   <Icon className="h-5 w-5" />
                   {item.name}
@@ -112,9 +135,9 @@ export function Sidebar() {
             <span className="text-body-sm font-medium text-text-secondary">
               {user?.full_name
                 ? user.full_name
-                    .split(' ')
+                    .split(" ")
                     .map((n) => n[0])
-                    .join('')
+                    .join("")
                     .toUpperCase()
                 : user?.email?.[0]?.toUpperCase()}
             </span>

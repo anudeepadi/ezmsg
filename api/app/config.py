@@ -75,8 +75,10 @@ class Settings(BaseSettings):
     # PII Encryption
     encryption_key: str = ""  # AES-256 key (base64-encoded 32 bytes)
 
-    # Twilio (for webhook signature verification)
+    # Twilio
+    twilio_account_sid: str = ""
     twilio_auth_token: str = ""
+    twilio_phone_number: str = ""
 
     # Admin seed credentials (override via env vars)
     admin_email: str = "admin@ezmsg.local"

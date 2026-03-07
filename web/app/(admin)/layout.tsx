@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { AuthGuard, Sidebar, Toasts } from '@/components/layout';
+import { AuthGuard, ErrorBoundary, Sidebar, Toasts } from "@/components/layout";
 
 export default function AdminLayout({
   children,
@@ -12,7 +12,7 @@ export default function AdminLayout({
       <div className="min-h-screen bg-background">
         <Sidebar />
         <main className="ml-64 min-h-screen">
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </main>
         <Toasts />
       </div>

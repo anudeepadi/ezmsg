@@ -3,16 +3,16 @@
  * All requests include credentials for HttpOnly cookie auth.
  */
 
-const API_BASE = '/api';
+const API_BASE = "/api";
 
 export class ApiError extends Error {
   constructor(
     public status: number,
     public statusText: string,
-    public data?: unknown
+    public data?: unknown,
   ) {
     super(`API Error: ${status} ${statusText}`);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
@@ -37,15 +37,15 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
 
   const response = await fetch(url, {
     ...options,
-    credentials: 'include',
+    credentials: "include",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     },
   });
@@ -69,21 +69,21 @@ export interface LoginCredentials {
 
 export const auth = {
   login: (credentials: LoginCredentials) =>
-    request<{ message: string; user: User }>('/auth/login', {
-      method: 'POST',
+    request<{ message: string; user: User }>("/auth/login", {
+      method: "POST",
       body: JSON.stringify(credentials),
     }),
 
   logout: () =>
-    request<{ message: string }>('/auth/logout', {
-      method: 'POST',
+    request<{ message: string }>("/auth/logout", {
+      method: "POST",
     }),
 
-  me: () => request<User>('/auth/me'),
+  me: () => request<User>("/auth/me"),
 
   refresh: () =>
-    request<{ message: string }>('/auth/refresh', {
-      method: 'POST',
+    request<{ message: string }>("/auth/refresh", {
+      method: "POST",
     }),
 };
 
@@ -119,35 +119,35 @@ export interface ProjectUpdate {
 }
 
 export const projects = {
-  list: () => request<ProjectListResponse>('/admin/projects'),
+  list: () => request<ProjectListResponse>("/admin/projects"),
 
   get: (id: number) => request<Project>(`/admin/projects/${id}`),
 
   create: (data: ProjectCreate) =>
-    request<Project>('/admin/projects', {
-      method: 'POST',
+    request<Project>("/admin/projects", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   update: (id: number, data: ProjectUpdate) =>
     request<Project>(`/admin/projects/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     }),
 
   delete: (id: number) =>
     request<void>(`/admin/projects/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     }),
 
   activate: (id: number) =>
     request<Project>(`/admin/projects/${id}/activate`, {
-      method: 'POST',
+      method: "POST",
     }),
 
   suspend: (id: number) =>
     request<Project>(`/admin/projects/${id}/suspend`, {
-      method: 'POST',
+      method: "POST",
     }),
 };
 
@@ -216,37 +216,46 @@ export const participants = {
       page: page.toString(),
       size: size.toString(),
     });
-    if (status) params.set('status_filter', status);
+    if (status) params.set("status_filter", status);
     return request<ParticipantListResponse>(
-      `/admin/participants/project/${projectId}?${params}`
+      `/admin/participants/project/${projectId}?${params}`,
     );
   },
 
   get: (id: number) => request<Participant>(`/admin/participants/${id}`),
 
   create: (data: ParticipantCreate) =>
-    request<Participant>('/admin/participants', {
-      method: 'POST',
+    request<Participant>("/admin/participants", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   update: (id: number, data: ParticipantUpdate) =>
     request<Participant>(`/admin/participants/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     }),
 
   getVariables: (id: number) =>
     request<ParticipantVariable[]>(`/admin/participants/${id}/variables`),
 
-  updateVariable: (participantId: number, variableId: number, value: string | null) =>
-    request<ParticipantVariable>(`/admin/participants/${participantId}/variables/${variableId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ value }),
-    }),
+  updateVariable: (
+    participantId: number,
+    variableId: number,
+    value: string | null,
+  ) =>
+    request<ParticipantVariable>(
+      `/admin/participants/${participantId}/variables/${variableId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ value }),
+      },
+    ),
 
   getMessages: (id: number, limit = 100) =>
-    request<ParticipantMessage[]>(`/admin/participants/${id}/messages?limit=${limit}`),
+    request<ParticipantMessage[]>(
+      `/admin/participants/${id}/messages?limit=${limit}`,
+    ),
 };
 
 // Templates
@@ -282,6 +291,19 @@ export interface TemplateCreate {
   }[];
 }
 
+export interface TemplateUpdate {
+  name?: string;
+  description?: string;
+  type?: string;
+  texts?: {
+    language_id: number;
+    message_text: string;
+    media_url?: string;
+    media_type?: string;
+    quick_replies?: Record<string, unknown>[];
+  }[];
+}
+
 export const templates = {
   list: (projectId: number) =>
     request<Template[]>(`/admin/templates/project/${projectId}`),
@@ -289,14 +311,20 @@ export const templates = {
   get: (id: number) => request<Template>(`/admin/templates/${id}`),
 
   create: (data: TemplateCreate) =>
-    request<Template>('/admin/templates', {
-      method: 'POST',
+    request<Template>("/admin/templates", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: number, data: TemplateUpdate) =>
+    request<Template>(`/admin/templates/${id}`, {
+      method: "PUT",
       body: JSON.stringify(data),
     }),
 
   delete: (id: number) =>
     request<void>(`/admin/templates/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     }),
 };
 
@@ -368,36 +396,57 @@ export const nodes = {
   get: (id: number) => request<Node>(`/admin/nodes/${id}`),
 
   create: (data: NodeCreate) =>
-    request<Node>('/admin/nodes', {
-      method: 'POST',
+    request<Node>("/admin/nodes", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   update: (id: number, data: NodeUpdate) =>
     request<Node>(`/admin/nodes/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     }),
 
   delete: (id: number) =>
     request<void>(`/admin/nodes/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     }),
 
   getGraph: (projectId: number) =>
     request<GraphResponse>(`/admin/nodes/project/${projectId}/graph`),
 
   createEdge: (data: EdgeCreate) =>
-    request<Edge>('/admin/nodes/edges', {
-      method: 'POST',
+    request<Edge>("/admin/nodes/edges", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   deleteEdge: (id: number) =>
     request<void>(`/admin/nodes/edges/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     }),
+
+  validateGraph: (projectId: number) =>
+    request<GraphValidationResult>(
+      `/admin/nodes/project/${projectId}/validate`,
+    ),
 };
+
+// Graph Validation
+export interface GraphValidationIssue {
+  severity: "error" | "warning";
+  message: string;
+  node_id: number | null;
+}
+
+export interface GraphValidationResult {
+  valid: boolean;
+  issues: GraphValidationIssue[];
+  node_count: number;
+  edge_count: number;
+  entry_nodes: number;
+  terminal_nodes: number;
+}
 
 // Variables
 export interface Variable {
@@ -436,20 +485,20 @@ export const variables = {
   get: (id: number) => request<Variable>(`/admin/variables/${id}`),
 
   create: (data: VariableCreate) =>
-    request<Variable>('/admin/variables', {
-      method: 'POST',
+    request<Variable>("/admin/variables", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
   update: (id: number, data: VariableUpdate) =>
     request<Variable>(`/admin/variables/${id}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(data),
     }),
 
   delete: (id: number) =>
     request<void>(`/admin/variables/${id}`, {
-      method: 'DELETE',
+      method: "DELETE",
     }),
 };
 
@@ -502,36 +551,36 @@ export interface ScheduledMessage {
 }
 
 export const scheduler = {
-  health: () => request<QueueHealth>('/scheduler/health'),
+  health: () => request<QueueHealth>("/scheduler/health"),
 
   pending: (projectId?: number, limit = 100) => {
     const params = new URLSearchParams({ limit: limit.toString() });
-    if (projectId) params.set('project_id', projectId.toString());
+    if (projectId) params.set("project_id", projectId.toString());
     return request<ScheduledMessage[]>(`/scheduler/messages/pending?${params}`);
   },
 
   failed: (projectId?: number, limit = 100) => {
     const params = new URLSearchParams({ limit: limit.toString() });
-    if (projectId) params.set('project_id', projectId.toString());
+    if (projectId) params.set("project_id", projectId.toString());
     return request<ScheduledMessage[]>(`/scheduler/messages/failed?${params}`);
   },
 
   requeue: (maxAgeHours = 24) =>
     request<{ requeued_count: number; message: string }>(
       `/scheduler/requeue?max_age_hours=${maxAgeHours}`,
-      { method: 'POST' }
+      { method: "POST" },
     ),
 
   abortParticipant: (participantId: number) =>
     request<{ aborted_count: number; message: string }>(
       `/scheduler/abort/participant/${participantId}`,
-      { method: 'POST' }
+      { method: "POST" },
     ),
 
   abortProject: (projectId: number) =>
     request<{ aborted_count: number; message: string }>(
       `/scheduler/abort/project/${projectId}`,
-      { method: 'POST' }
+      { method: "POST" },
     ),
 };
 
@@ -539,7 +588,7 @@ export const scheduler = {
 export interface TestResult {
   file: string;
   name: string;
-  status: 'passed' | 'failed' | 'error' | 'skipped';
+  status: "passed" | "failed" | "error" | "skipped";
   full_name: string;
 }
 
@@ -569,11 +618,11 @@ export interface TestHealthResponse {
 
 export const testing = {
   run: () =>
-    request<TestRunResponse>('/admin/testing/run', {
-      method: 'POST',
+    request<TestRunResponse>("/admin/testing/run", {
+      method: "POST",
     }),
 
-  health: () => request<TestHealthResponse>('/admin/testing/health'),
+  health: () => request<TestHealthResponse>("/admin/testing/health"),
 };
 
 // Protocol Testing
@@ -651,17 +700,30 @@ export const protocolTest = {
   overview: (projectId: number) =>
     request<ProtocolOverview>(`/admin/protocol-test/${projectId}/overview`),
 
-  run: (projectId: number, data?: { participant_name?: string; language_id?: number; variables?: Record<string, string> }) =>
+  run: (
+    projectId: number,
+    data?: {
+      participant_name?: string;
+      language_id?: number;
+      variables?: Record<string, string>;
+    },
+  ) =>
     request<ProtocolTestResult>(`/admin/protocol-test/${projectId}/run`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(data || {}),
     }),
 
-  createTestParticipant: (projectId: number, data?: { participant_name?: string; language_id?: number }) =>
-    request<TestParticipantResult>(`/admin/protocol-test/${projectId}/create-test-participant`, {
-      method: 'POST',
-      body: JSON.stringify(data || {}),
-    }),
+  createTestParticipant: (
+    projectId: number,
+    data?: { participant_name?: string; language_id?: number },
+  ) =>
+    request<TestParticipantResult>(
+      `/admin/protocol-test/${projectId}/create-test-participant`,
+      {
+        method: "POST",
+        body: JSON.stringify(data || {}),
+      },
+    ),
 };
 
 // Interactive Protocol Simulator
@@ -710,21 +772,186 @@ export interface SimulatorReplyResponse {
 }
 
 export const simulator = {
-  start: (projectId: number, data?: { language_id?: number; start_time?: string }) =>
-    request<SimulatorStartResponse>(`/admin/protocol-test/${projectId}/simulate/start`, {
-      method: 'POST',
-      body: JSON.stringify(data || {}),
-    }),
+  start: (
+    projectId: number,
+    data?: { language_id?: number; start_time?: string },
+  ) =>
+    request<SimulatorStartResponse>(
+      `/admin/protocol-test/${projectId}/simulate/start`,
+      {
+        method: "POST",
+        body: JSON.stringify(data || {}),
+      },
+    ),
 
-  reply: (projectId: number, data: { current_node_id: number; reply_value: string; current_time: string; language_id?: number }) =>
-    request<SimulatorReplyResponse>(`/admin/protocol-test/${projectId}/simulate/reply`, {
-      method: 'POST',
+  reply: (
+    projectId: number,
+    data: {
+      current_node_id: number;
+      reply_value: string;
+      current_time: string;
+      language_id?: number;
+    },
+  ) =>
+    request<SimulatorReplyResponse>(
+      `/admin/protocol-test/${projectId}/simulate/reply`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    ),
+
+  advance: (
+    projectId: number,
+    data: {
+      current_node_id: number;
+      current_time: string;
+      language_id?: number;
+    },
+  ) =>
+    request<SimulatorReplyResponse>(
+      `/admin/protocol-test/${projectId}/simulate/advance`,
+      {
+        method: "POST",
+        body: JSON.stringify({ ...data, reply_value: "" }),
+      },
+    ),
+};
+
+// Protocol Import/Export
+export interface ImportResult {
+  variables_created: number;
+  timing_elements_created: number;
+  templates_created: number;
+  conditions_created: number;
+  nodes_created: number;
+  edges_created: number;
+  keywords_created: number;
+}
+
+export const protocolData = {
+  export: (projectId: number) =>
+    request<Record<string, unknown>>(
+      `/admin/protocol/projects/${projectId}/export`,
+    ),
+
+  import: (projectId: number, protocol: Record<string, unknown>) =>
+    request<ImportResult>(`/admin/protocol/projects/${projectId}/import`, {
+      method: "POST",
+      body: JSON.stringify(protocol),
+    }),
+};
+
+// User Management (admin only)
+export interface UserListItem {
+  id: number;
+  email: string;
+  full_name: string | null;
+  role: string;
+  is_active: boolean;
+}
+
+export const users = {
+  register: (data: { email: string; password: string; full_name?: string }) =>
+    request<UserListItem>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+};
+
+// ── Delivery Management ──────────────────────────────────────────────
+
+export interface QueueStats {
+  pending: number;
+  in_progress: number;
+  sent: number;
+  failed: number;
+  skipped: number;
+  aborted: number;
+  total: number;
+}
+
+export interface MessageSummary {
+  id: number;
+  participant_id: number;
+  participant_uuid: string | null;
+  project_id: number;
+  messaging_node_id: number | null;
+  template_id: number | null;
+  status: string;
+  channel_type: string;
+  message_body: string | null;
+  send_at: string;
+  sent_at: string | null;
+  attempt_count: number;
+  last_error_message: string | null;
+  external_id: string | null;
+  created_at: string | null;
+}
+
+export interface MessageListResponse {
+  messages: MessageSummary[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface TestSendResponse {
+  success: boolean;
+  channel: string;
+  external_id: string | null;
+  error: string | null;
+}
+
+export interface ChannelStatus {
+  twilio_configured: boolean;
+  twilio_phone_number: string;
+  fcm_configured: boolean;
+  simulation_mode: boolean;
+}
+
+export const delivery = {
+  getStats: (projectId: number) =>
+    request<QueueStats>(`/admin/delivery/project/${projectId}/stats`),
+
+  listMessages: (
+    projectId: number,
+    params?: {
+      status?: string;
+      channel?: string;
+      participant_id?: number;
+      page?: number;
+      limit?: number;
+    },
+  ) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.channel) qs.set("channel", params.channel);
+    if (params?.participant_id)
+      qs.set("participant_id", String(params.participant_id));
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.limit) qs.set("limit", String(params.limit));
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return request<MessageListResponse>(
+      `/admin/delivery/project/${projectId}/messages${suffix}`,
+    );
+  },
+
+  testSend: (data: {
+    participant_id: number;
+    message_text: string;
+    channel_override?: string;
+  }) =>
+    request<TestSendResponse>("/admin/delivery/test-send", {
+      method: "POST",
       body: JSON.stringify(data),
     }),
 
-  advance: (projectId: number, data: { current_node_id: number; current_time: string; language_id?: number }) =>
-    request<SimulatorReplyResponse>(`/admin/protocol-test/${projectId}/simulate/advance`, {
-      method: 'POST',
-      body: JSON.stringify({ ...data, reply_value: '' }),
-    }),
+  channelStatus: () => request<ChannelStatus>("/admin/delivery/channel-status"),
+
+  retryFailed: (projectId: number) =>
+    request<{ retried_count: number }>(
+      `/admin/delivery/project/${projectId}/retry-failed`,
+      { method: "POST" },
+    ),
 };

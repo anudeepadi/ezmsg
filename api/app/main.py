@@ -101,12 +101,53 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health_check():
-        """Health check endpoint."""
+        """Liveness probe - confirms the process is running."""
         return {
             "status": "healthy",
             "app": settings.app_name,
             "environment": settings.environment,
         }
+
+    @app.get("/ready")
+    async def readiness_check():
+        """Readiness probe - confirms DB and Redis are reachable.
+
+        Returns 503 if any dependency is unreachable, signaling
+        load balancers to stop routing traffic.
+        """
+        from fastapi.responses import JSONResponse
+        from sqlalchemy import text as sa_text
+        from app.database.engine import async_session_maker
+
+        checks: dict[str, str] = {}
+
+        # Database check
+        try:
+            async with async_session_maker() as session:
+                await session.execute(sa_text("SELECT 1"))
+            checks["database"] = "ok"
+        except Exception as e:
+            checks["database"] = f"error: {type(e).__name__}"
+
+        # Redis check
+        try:
+            from app.redis import get_redis
+            redis = await get_redis()
+            await redis.ping()
+            checks["redis"] = "ok"
+        except Exception as e:
+            checks["redis"] = f"error: {type(e).__name__}"
+
+        all_ok = all(v == "ok" for v in checks.values())
+        status_code = 200 if all_ok else 503
+
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "status": "ready" if all_ok else "not_ready",
+                "checks": checks,
+            },
+        )
 
     @app.get("/debug/db")
     async def debug_db():

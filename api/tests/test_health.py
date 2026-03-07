@@ -26,3 +26,14 @@ async def test_health_check_contains_required_fields(client: httpx.AsyncClient):
     required_fields = ["status", "app", "environment"]
     for field in required_fields:
         assert field in data, f"Missing required field: {field}"
+
+
+@pytest.mark.asyncio
+async def test_readiness_check(client: httpx.AsyncClient):
+    """Test readiness probe returns dependency check results."""
+    response = await client.get("/ready")
+    data = response.json()
+    assert "status" in data
+    assert "checks" in data
+    assert "database" in data["checks"]
+    assert "redis" in data["checks"]

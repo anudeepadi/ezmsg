@@ -79,6 +79,39 @@ async def get_current_user(
     return user
 
 
+async def get_optional_current_user(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Get the current user if authenticated, or None if not.
+
+    Unlike get_current_user, this does NOT raise on missing/invalid tokens.
+    Used for endpoints that behave differently based on auth status.
+    """
+    token = None
+
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ").strip()
+
+    if not token:
+        token = request.cookies.get("ezmsg_access")
+
+    if not token:
+        return None
+
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "access":
+        return None
+
+    user_id = payload.get("sub")
+    if user_id is None:
+        return None
+
+    result = await db.execute(select(User).where(User.id == int(user_id)))
+    return result.scalar_one_or_none()
+
+
 async def get_current_active_user(
     user: User = Depends(get_current_user),
 ) -> User:

@@ -201,6 +201,96 @@ async def create_template(
     )
 
 
+class TemplateUpdate(BaseModel):
+    """Template update schema."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    texts: Optional[List[TemplateTextCreate]] = None
+
+
+@router.put("/{template_id}", response_model=TemplateResponse)
+async def update_template(
+    template_id: int,
+    data: TemplateUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_active_user),
+) -> TemplateResponse:
+    """Update a message template."""
+    from datetime import datetime, timezone
+
+    result = await db.execute(
+        select(MessageTemplate)
+        .options(
+            selectinload(MessageTemplate.texts),
+            selectinload(MessageTemplate.project),
+        )
+        .where(MessageTemplate.id == template_id, MessageTemplate.removed_at.is_(None))
+    )
+    template = result.scalar_one_or_none()
+
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if user.role.value != "admin" and template.project.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if data.name is not None:
+        template.name = data.name
+    if data.description is not None:
+        template.description = data.description
+    if data.type is not None:
+        template.type = data.type
+
+    # Replace texts if provided
+    if data.texts is not None:
+        # Soft-delete existing texts
+        for existing_text in template.texts:
+            existing_text.removed_at = datetime.now(timezone.utc)
+
+        # Add new texts
+        for text_data in data.texts:
+            text = MessageTemplateText(
+                template_id=template.id,
+                language_id=text_data.language_id,
+                message_text=text_data.message_text,
+                media_url=text_data.media_url,
+                media_type=text_data.media_type,
+                quick_replies=text_data.quick_replies,
+            )
+            db.add(text)
+
+    await db.flush()
+
+    # Reload with fresh texts
+    result = await db.execute(
+        select(MessageTemplate)
+        .options(selectinload(MessageTemplate.texts))
+        .where(MessageTemplate.id == template.id)
+    )
+    template = result.scalar_one()
+
+    return TemplateResponse(
+        id=template.id,
+        project_id=template.project_id,
+        name=template.name,
+        description=template.description,
+        type=template.type,
+        texts=[
+            TemplateTextResponse(
+                id=txt.id,
+                language_id=txt.language_id,
+                message_text=txt.message_text,
+                media_url=txt.media_url,
+                media_type=txt.media_type,
+                quick_replies=txt.quick_replies or [],
+            )
+            for txt in template.texts
+            if txt.removed_at is None
+        ],
+    )
+
+
 @router.get("/{template_id}", response_model=TemplateResponse)
 async def get_template(
     template_id: int,
