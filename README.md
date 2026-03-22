@@ -1,225 +1,116 @@
-# EzMsg - Messaging Protocol Management System
+# EzMsg — Messaging Protocol Management System
 
-A full-stack application for managing messaging protocols in health interventions, built for the QuitTxt Research Study.
+A full-stack platform for managing messaging protocols in health interventions, built for the QuitTxt Research Study.
 
-## Architecture
+## Repository Structure
 
 ```
-ezmsg-new/
-├── api/          # FastAPI backend (Python 3.12)
-├── web/          # Next.js 14 frontend (React 18)
-├── worker/       # Background scheduler (Python 3.12)
-└── docker/       # Docker configuration
+ezmsg/
+├── backend/           # FastAPI backend (Python 3.12)
+│   ├── app/           #   Application code
+│   ├── tests/         #   Backend test suite
+│   └── worker/        #   Background message scheduler
+├── frontend/          # Next.js 14 frontend (React 18)
+│   ├── app/           #   Pages and routes
+│   ├── components/    #   UI components
+│   └── lib/           #   Utilities
+├── docs/              # Deployment guides and reference docs
+├── scripts/           # Setup, test, and deployment scripts
+├── docker-compose.yml # Local development (db + backend + frontend)
+└── docker-compose.prod.yml
 ```
 
-## Deployment
+## Quick Start (Docker)
 
-### Railway (Recommended for Production)
+The fastest way to run the full stack locally:
 
-Deploy to Railway cloud platform in minutes:
+```bash
+# 1. Clone and enter the repo
+git clone <repo-url> && cd ezmsg
 
-1. **Quick Deploy**: See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for complete guide
-2. **One-Click CLI**: `./railway-deploy.sh` (requires Railway CLI)
-3. **Automatic**: Railway auto-deploys from GitHub on every push
+# 2. Copy environment template
+cp .env.example .env.local
 
-**What's included:**
-- PostgreSQL database (managed)
-- Redis cache (managed)
-- Automatic HTTPS
-- Zero-downtime deployments
-- Monitoring & logs
+# 3. Start everything (Postgres, Redis, Backend, Frontend)
+docker compose up
 
----
+# 4. Open the app
+#    Frontend:  http://localhost:3000
+#    API docs:  http://localhost:8000/docs
+```
 
-## Local Development
+Default credentials: `admin@ezmsg.local` / `admin123`
+
+## Local Development (without Docker)
 
 ### Prerequisites
 
-- Docker and Docker Compose
-- Node.js 20+ (for local frontend development)
-- Python 3.12+ (for local backend development)
+- Python 3.12+
+- Node.js 20+
+- PostgreSQL 16 (or use Docker for just the database)
+- Redis 7 (or use Docker for just Redis)
 
-### Running with Docker
-
-1. Start all services:
+### Database only via Docker
 
 ```bash
-cd docker
-docker-compose up -d
+# Start only Postgres and Redis
+docker compose up postgres redis
 ```
 
-2. Access the applications:
-   - Frontend: http://localhost:3000
-   - API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
-
-3. Default credentials:
-   - Email: `admin@example.com`
-   - Password: `admin123`
-
-### Local Development
-
-#### Backend (API)
+### Backend
 
 ```bash
-cd api
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -e .
-
-# Start the server
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -e ".[dev]"
 uvicorn app.main:app --reload --port 8000
 ```
 
-#### Frontend (Web)
+### Frontend
 
 ```bash
-cd web
-
-# Install dependencies
+cd frontend
 npm install
-
-# Start development server
 npm run dev
 ```
 
-The frontend proxies API requests to `http://localhost:8000`.
+The frontend proxies `/api/*` requests to `http://localhost:8000/v1` via `next.config.js` rewrites.
 
-#### Worker
+### Worker (background scheduler)
 
 ```bash
-cd worker
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install dependencies
+cd backend/worker
+python -m venv venv && source venv/bin/activate
 pip install -e .
-
-# Run in simulation mode
-EZMSG_SIMULATION_MODE=true python -m app.main
+SIMULATION_MODE=true python -m app.main
 ```
-
-## Protocol API (External Integration)
-
-EzMsg provides a REST API for external systems to interact with messaging protocols using API key authentication.
-
-### Quick Start
-
-```bash
-# Start a protocol session
-curl -X POST http://localhost:8000/v1/protocol/start \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: iquit0-test-key-12345" \
-  -d '{
-    "project_id": 7,
-    "language": "en",
-    "initial_response": "iquit0"
-  }'
-
-# Send a response to continue the flow
-curl -X POST http://localhost:8000/v1/protocol/respond \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: iquit0-test-key-12345" \
-  -d '{
-    "session_id": "your-session-id-here",
-    "response": "1"
-  }'
-```
-
-### Use Cases
-- Integration with external chatbots
-- Testing protocol flows via Postman
-- Mobile app direct API access
-- Third-party system integration
-
-**API Key**: `iquit0-test-key-12345` (update in production: `api/app/routers/protocol_api.py`)
-
----
 
 ## Features
 
-### Admin Dashboard
-- Project management (CRUD)
-- Participant enrollment and tracking
-- Message template creation with i18n (EN/ES)
-- Node graph editor for messaging workflows
-- Variable management for personalization
-- Analytics and delivery statistics
-- Scheduler monitoring
+- **Admin Dashboard** — project management, participant enrollment, message template editor (EN/ES), node graph editor, analytics
+- **Messaging Engine** — scheduled delivery, FCM push notifications, variable substitution, quick replies, keyword handling, exponential backoff retries
+- **Protocol API** — REST endpoints for external chatbot / mobile app integration
 
-### Messaging Engine
-- Scheduled message processing
-- FCM push notifications (for Flutter app)
-- Variable substitution in templates
-- Quick reply handling
-- Keyword processing (STOP, HELP, etc.)
-- Exponential backoff retry logic
+## API Overview
 
-### API Endpoints
-
-#### Authentication (`/v1/auth/*`)
-- `POST /login` - Login with email/password
-- `POST /logout` - Logout
-- `POST /refresh` - Refresh access token
-- `GET /me` - Get current user
-
-#### Admin (`/v1/admin/*`)
-- Projects, Participants, Templates, Nodes, Variables
-- Analytics (overview, delivery stats)
-
-#### Scheduler (`/v1/scheduler/*`)
-- Queue health monitoring
-- Message requeue/abort operations
-
-#### Webhooks (`/v1/webhooks/*`)
-- Twilio SMS inbound/status
-- FCM token refresh
-- App quick replies
-
-## Database Schema
-
-The system uses PostgreSQL with the following core tables:
-
-- `users` - System users (admin, researcher, operator)
-- `projects` - Study containers
-- `participants` - Enrolled recipients
-- `variables` / `participant_variable_values` - Personalization
-- `message_templates` / `message_template_texts` - i18n content
-- `messaging_nodes` / `messaging_node_edges` - Workflow graph
-- `scheduled_messages` - Worker queue
-- `incoming_messages` - Inbound message log
-- `keywords` - Keyword triggers
+| Group | Path | Purpose |
+|-------|------|---------|
+| Auth | `/v1/auth/*` | Login, logout, refresh, current user |
+| Admin | `/v1/admin/*` | Projects, participants, templates, nodes, variables, analytics |
+| Scheduler | `/v1/scheduler/*` | Queue health, requeue, abort |
+| Webhooks | `/v1/webhooks/*` | Twilio SMS, FCM token refresh, quick replies |
+| Protocol | `/v1/protocol/*` | External integration (API-key auth) |
 
 ## Environment Variables
 
-### API
-```env
-EZMSG_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/ezmsg
-EZMSG_SECRET_KEY=your-secret-key-here
-EZMSG_DEBUG=false
-```
+See `.env.example` for all available configuration. Key variables:
 
-### Worker
-```env
-EZMSG_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/ezmsg
-EZMSG_SIMULATION_MODE=true
-EZMSG_POLL_INTERVAL_SECONDS=5
-EZMSG_BATCH_SIZE=50
-```
-
-## Design System
-
-The frontend uses a light theme inspired by arnaud.ai:
-
-- **Typography**: Source Serif 4 (headings), Inter (body), JetBrains Mono (code)
-- **Colors**: Light background (#fafafa), subtle borders, sophisticated contrast
-- **Components**: Minimal, clean interfaces with generous whitespace
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `postgresql+asyncpg://ezmsg:ezmsg_dev@localhost:5433/ezmsg` | Postgres connection |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection |
+| `JWT_SECRET` | (auto-generated in dev) | Token signing key |
+| `SIMULATION_MODE` | `true` | Skip real SMS/push delivery |
 
 ## License
 
