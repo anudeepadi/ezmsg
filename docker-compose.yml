@@ -67,7 +67,7 @@ services:
       REFRESH_TOKEN_EXPIRE_DAYS: "7"
       CORS_ORIGINS: '["http://localhost:3000"]'
       PROTOCOL_API_KEY: local-dev-key
-      ADMIN_EMAIL: admin@ezmsg.local
+      ADMIN_EMAIL: admin@ezmsg.dev
       ADMIN_PASSWORD: admin123
     depends_on:
       postgres:

@@ -14,7 +14,7 @@ CREATE TYPE sms_message_direction AS ENUM ('OUTGOING', 'INCOMING');
 CREATE TYPE node_timing_object_type AS ENUM ('TIMING_VARIABLE', 'MESSAGING_NODE', 'MESSAGE_TEMPLATE', 'KEYWORD');
 CREATE TYPE variable_type AS ENUM ('STRING', 'INTEGER', 'DECIMAL', 'DATETIME', 'BOOLEAN');
 CREATE TYPE variable_source_type AS ENUM ('MANUAL', 'CALCULATED', 'EXTERNAL', 'SYSTEM');
-CREATE TYPE user_role AS ENUM ('admin', 'researcher', 'operator');
+CREATE TYPE user_role AS ENUM ('ADMIN', 'RESEARCHER', 'OPERATOR');
 
 -- Users table
 CREATE TABLE users (
@@ -22,7 +22,7 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255),
-    role user_role NOT NULL DEFAULT 'operator',
+    role user_role NOT NULL DEFAULT 'OPERATOR',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -404,10 +404,7 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 
--- Seed initial admin user (password: admin123 - CHANGE IN PRODUCTION!)
--- bcrypt hash of 'admin123'
-INSERT INTO users (email, password_hash, full_name, role)
-VALUES ('admin@example.com', '$2b$12$xDTlJeREQTX/c63YnlAI.erQjuIf77CpIau2w9/O01/aTcBvpQx3e', 'Admin User', 'ADMIN');
+-- Admin user is seeded by the application on first startup (see backend/app/database/seed_db.py)
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

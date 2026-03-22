@@ -19,7 +19,7 @@ async def seed_admin_user() -> None:
     async with async_session_maker() as session:
         # Check if admin user already exists
         result = await session.execute(
-            select(User).where(User.email == "admin@example.com")
+            select(User).where(User.email == "admin@ezmsg.dev")
         )
         existing_admin = result.scalar_one_or_none()
 
@@ -29,7 +29,7 @@ async def seed_admin_user() -> None:
 
         # Create admin user
         admin_user = User(
-            email="admin@example.com",
+            email="admin@ezmsg.dev",
             password_hash=hash_password("admin123"),
             full_name="System Administrator",
             role=UserRole.ADMIN,

@@ -39,7 +39,7 @@ docker compose up
 #    API docs:  http://localhost:8000/docs
 ```
 
-Default credentials: `admin@ezmsg.local` / `admin123`
+Default credentials: `admin@ezmsg.dev` / `admin123`
 
 ## Local Development (without Docker)
 

@@ -38,14 +38,14 @@ async def init_db() -> None:
             await conn.run_sync(Base.metadata.drop_all)
             existing_tables = []
 
-        # Create enum type
-        print("Creating enum types...")
-        await conn.execute(
-            text("""
-                DROP TYPE IF EXISTS user_role CASCADE;
-                CREATE TYPE user_role AS ENUM ('admin', 'researcher', 'operator');
-            """)
-        )
+        # Create enum type if needed (values must match UserRole enum names)
+        if not enum_exists:
+            print("Creating enum types...")
+            await conn.execute(
+                text("CREATE TYPE user_role AS ENUM ('ADMIN', 'RESEARCHER', 'OPERATOR')")
+            )
+        else:
+            print("Enum types already exist, skipping.")
 
         # Create all tables defined in models
         print("Creating all tables...")
