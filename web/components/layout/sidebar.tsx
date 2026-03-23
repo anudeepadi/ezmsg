@@ -74,7 +74,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="h-16 flex items-center px-6 border-b border-border">
         <Link href="/admin" className="flex items-center gap-2">
-          <span className="text-title text-text font-serif">EzMsg</span>
+          <span className="text-title text-text font-serif">Cadence</span>
         </Link>
       </div>
 

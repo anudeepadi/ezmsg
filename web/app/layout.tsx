@@ -1,9 +1,9 @@
-import type { Metadata } from 'next';
-import './globals.css';
+import type { Metadata } from "next";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'EzMsg - Messaging Protocol Management',
-  description: 'Manage messaging protocols for health interventions',
+  title: "Cadence - Messaging Protocol Management",
+  description: "Manage messaging protocols for health interventions",
 };
 
 export default function RootLayout({
