@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/store';
+import { useState, useEffect, FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/store";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading, isAuthenticated, error, clearError, checkAuth } = useAuthStore();
+  const { login, isLoading, isAuthenticated, error, clearError, checkAuth } =
+    useAuthStore();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('/admin');
+      router.replace("/admin");
     }
   }, [isAuthenticated, router]);
 
@@ -31,7 +32,7 @@ export default function LoginPage() {
     setIsSubmitting(false);
 
     if (success) {
-      router.push('/admin');
+      router.push("/admin");
     }
   };
 
@@ -126,7 +127,7 @@ export default function LoginPage() {
                 Signing in...
               </span>
             ) : (
-              'Sign in'
+              "Sign in"
             )}
           </button>
         </form>
@@ -134,7 +135,7 @@ export default function LoginPage() {
         {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-caption text-text-muted">
-            Demo credentials: admin@example.com / admin123
+            Demo credentials: admin@ezmsg.dev / admin123
           </p>
         </div>
       </div>
