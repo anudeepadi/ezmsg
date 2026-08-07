@@ -46,3 +46,7 @@ htmlcov/
 # Local tooling / artifacts
 .claude/
 tmp/
+
+# Legacy nested repos kept only as local archives
+backend/
+frontend/
