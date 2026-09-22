@@ -1,226 +1,44 @@
-# EzMsg - Messaging Protocol Management System
+# EzMsg — Messaging Protocols
 
-A full-stack application for managing messaging protocols in health interventions, built for the QuitTxt Research Study.
+A workspace for editing messaging protocols, enrolling participants and scheduling messages for research workflows. It combines a FastAPI API, Next.js administration interface and Python scheduler, originally built for the QuitTxt research study.
+
+**Status:** application prototype with local simulation support. Deployment guides are included; this README does not claim a currently available hosted service or validated study deployment.
 
 ## Architecture
 
-```
-ezmsg-new/
-├── api/          # FastAPI backend (Python 3.12)
-├── web/          # Next.js 14 frontend (React 18)
-├── worker/       # Background scheduler (Python 3.12)
-└── docker/       # Docker configuration
-```
+- [api/](api/) — authentication, projects, participants, protocol nodes and REST endpoints.
+- [web/](web/) — protocol administration and scheduling interface.
+- [worker/](worker/) — queued-message scheduler.
+- [docker/docker-compose.yml](docker/docker-compose.yml) — PostgreSQL, Redis and application services.
 
-## Deployment
-
-### Railway (Recommended for Production)
-
-Deploy to Railway cloud platform in minutes:
-
-1. **Quick Deploy**: See [RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md) for complete guide
-2. **One-Click CLI**: `./railway-deploy.sh` (requires Railway CLI)
-3. **Automatic**: Railway auto-deploys from GitHub on every push
-
-**What's included:**
-- PostgreSQL database (managed)
-- Redis cache (managed)
-- Automatic HTTPS
-- Zero-downtime deployments
-- Monitoring & logs
-
----
-
-## Local Development
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Node.js 20+ (for local frontend development)
-- Python 3.12+ (for local backend development)
-
-### Running with Docker
-
-1. Start all services:
+## Local simulation
 
 ```bash
-cd docker
-docker-compose up -d
+git clone https://github.com/anudeepadi/ezmsg.git
+cd ezmsg
+docker compose -f docker/docker-compose.yml up --build
 ```
 
-2. Access the applications:
-   - Frontend: http://localhost:3000
-   - API: http://localhost:8000
-   - API Docs: http://localhost:8000/docs
+The checked-in Compose file sets `SIMULATION_MODE=true` for API and worker. It exposes the frontend on `http://localhost:3000`, API on `http://localhost:8000`, API documentation on `/docs`, and PostgreSQL on local port 5433. The development seed identifies `admin@example.com` / `admin123`; these are local-demo credentials only.
 
-3. Default credentials:
-   - Email: `admin@example.com`
-   - Password: `admin123`
+Create a separate demo project with a synthetic participant such as `Demo Participant`, a welcome message, and one response branch. Open the protocol editor, step through the branch and inspect the scheduler/log output. Keep delivery in simulation mode and use synthetic records; this walkthrough does not require study participant data or real messages.
 
-### Local Development
+The [protocol test scripts](test_protocol_flow.py) and [multi-day scenarios](test_protocol_multiday.py) show the protocol-engine call shape, but depend on an initialized database and project records. They are integration scenarios, not a self-contained fixture.
 
-#### Backend (API)
+## Developing components
 
-```bash
-cd api
+For the API, create a Python 3.12 environment in `api/`, install with `pip install -e .`, configure database/Redis settings, then run `uvicorn app.main:app --reload --port 8000`. In `web/`, run `npm ci` followed by `npm run dev`. The worker uses its own `worker/pyproject.toml` and runs as `python -m app.main` from that directory.
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+Use the environment variable names in the [Compose file](docker/docker-compose.yml) and each service's settings as the source of truth. The Compose development defaults are not deployment credentials. For deployment context, see [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md); provider configuration and external delivery require their own validation.
 
-# Install dependencies
-pip install -e .
+## Protocol integration
 
-# Start the server
-uvicorn app.main:app --reload --port 8000
-```
+The API includes `/v1/protocol/start` and `/v1/protocol/respond`. Use a configured API key and a project ID from your own database; prior example IDs and keys were tied to a local setup. The OpenAPI page provides request schemas when the API is running.
 
-#### Frontend (Web)
+## Contribution and scope
 
-```bash
-cd web
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-The frontend proxies API requests to `http://localhost:8000`.
-
-#### Worker
-
-```bash
-cd worker
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -e .
-
-# Run in simulation mode
-EZMSG_SIMULATION_MODE=true python -m app.main
-```
-
-## Protocol API (External Integration)
-
-EzMsg provides a REST API for external systems to interact with messaging protocols using API key authentication.
-
-### Quick Start
-
-```bash
-# Start a protocol session
-curl -X POST http://localhost:8000/v1/protocol/start \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: iquit0-test-key-12345" \
-  -d '{
-    "project_id": 7,
-    "language": "en",
-    "initial_response": "iquit0"
-  }'
-
-# Send a response to continue the flow
-curl -X POST http://localhost:8000/v1/protocol/respond \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: iquit0-test-key-12345" \
-  -d '{
-    "session_id": "your-session-id-here",
-    "response": "1"
-  }'
-```
-
-### Use Cases
-- Integration with external chatbots
-- Testing protocol flows via Postman
-- Mobile app direct API access
-- Third-party system integration
-
-**API Key**: `iquit0-test-key-12345` (update in production: `api/app/routers/protocol_api.py`)
-
----
-
-## Features
-
-### Admin Dashboard
-- Project management (CRUD)
-- Participant enrollment and tracking
-- Message template creation with i18n (EN/ES)
-- Node graph editor for messaging workflows
-- Variable management for personalization
-- Analytics and delivery statistics
-- Scheduler monitoring
-
-### Messaging Engine
-- Scheduled message processing
-- FCM push notifications (for Flutter app)
-- Variable substitution in templates
-- Quick reply handling
-- Keyword processing (STOP, HELP, etc.)
-- Exponential backoff retry logic
-
-### API Endpoints
-
-#### Authentication (`/v1/auth/*`)
-- `POST /login` - Login with email/password
-- `POST /logout` - Logout
-- `POST /refresh` - Refresh access token
-- `GET /me` - Get current user
-
-#### Admin (`/v1/admin/*`)
-- Projects, Participants, Templates, Nodes, Variables
-- Analytics (overview, delivery stats)
-
-#### Scheduler (`/v1/scheduler/*`)
-- Queue health monitoring
-- Message requeue/abort operations
-
-#### Webhooks (`/v1/webhooks/*`)
-- Twilio SMS inbound/status
-- FCM token refresh
-- App quick replies
-
-## Database Schema
-
-The system uses PostgreSQL with the following core tables:
-
-- `users` - System users (admin, researcher, operator)
-- `projects` - Study containers
-- `participants` - Enrolled recipients
-- `variables` / `participant_variable_values` - Personalization
-- `message_templates` / `message_template_texts` - i18n content
-- `messaging_nodes` / `messaging_node_edges` - Workflow graph
-- `scheduled_messages` - Worker queue
-- `incoming_messages` - Inbound message log
-- `keywords` - Keyword triggers
-
-## Environment Variables
-
-### API
-```env
-EZMSG_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/ezmsg
-EZMSG_SECRET_KEY=your-secret-key-here
-EZMSG_DEBUG=false
-```
-
-### Worker
-```env
-EZMSG_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/ezmsg
-EZMSG_SIMULATION_MODE=true
-EZMSG_POLL_INTERVAL_SECONDS=5
-EZMSG_BATCH_SIZE=50
-```
-
-## Design System
-
-The frontend uses a light theme inspired by arnaud.ai:
-
-- **Typography**: Source Serif 4 (headings), Inter (body), JetBrains Mono (code)
-- **Colors**: Light background (#fafafa), subtle borders, sophisticated contrast
-- **Components**: Minimal, clean interfaces with generous whitespace
+This repository captures the API, protocol editor and scheduler implementation. QuitTxt is the motivating research context; no study outcomes, participant data or institution-wide deployment claims are published here. A separate authorship breakdown is not recorded, so no unverified individual/team responsibilities are assigned.
 
 ## License
 
-MIT
+MIT (as stated in the original project documentation).
